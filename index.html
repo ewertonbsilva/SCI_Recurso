@@ -1,0 +1,95 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="default">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCI Recurso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Temas customizados via CSS Variables */
+        :root[data-theme="default"] { --primary: 37 99 235; --primary-hover: 29 78 216; }
+        :root[data-theme="ocean"] { --primary: 14 165 233; --primary-hover: 2 132 199; }
+        :root[data-theme="forest"] { --primary: 16 185 129; --primary-hover: 5 150 105; }
+        :root[data-theme="crimson"] { --primary: 220 38 38; --primary-hover: 185 28 28; }
+        :root[data-theme="indigo"] { --primary: 79 70 229; --primary-hover: 67 56 202; }
+
+        .bg-primary { background-color: rgb(var(--primary)); }
+        .text-primary { color: rgb(var(--primary)); }
+        .border-primary { border-color: rgb(var(--primary)); }
+        .ring-primary { --tw-ring-color: rgba(var(--primary), 0.2); }
+
+        /* Scrollbar Invisível */
+        ::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .dark .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        
+        .page-transition {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Ajustes finos do Modo Dark */
+        .dark body {
+            background-color: #020617;
+        }
+        .dark .bg-white {
+            background-color: #0f172a;
+        }
+        .dark .border-slate-100, .dark .border-slate-200 {
+            border-color: #1e293b;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "recharts": "https://esm.sh/recharts@^3.7.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-[#F8FAFC] dark:bg-[#020617] text-slate-900 transition-colors duration-300">
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
