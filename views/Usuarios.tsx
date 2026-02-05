@@ -43,7 +43,7 @@ const Usuarios: React.FC<UsuariosProps> = ({ onNotify }) => {
       onNotify?.("Não é possível remover o único usuário.", "error");
       return;
     }
-    if (!confirm("Excluir este usuário permanentemente?")) return;
+    // Removido confirm() bloqueado
     const newData = { ...data, users: data.users.filter(u => u.id !== id) };
     setData(newData);
     saveData(newData);

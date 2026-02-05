@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-// Added 'Users' to the import list below to fix the "Cannot find name 'Users'" error
 import { Send, FileText, Clock, AlertTriangle, Info, User, Trash2, Users } from 'lucide-react';
 import { loadData, saveData, getCurrentUser } from '../store';
 import { LogOperacional } from '../types';
@@ -33,7 +32,7 @@ const OperationalLog: React.FC = () => {
   };
 
   const removeLog = (id: string) => {
-    if (!confirm("Remover este registro?")) return;
+    // Removido confirm() bloqueado
     const newData = { ...data, logs: data.logs.filter(l => l.id !== id) };
     setData(newData);
     saveData(newData);

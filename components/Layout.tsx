@@ -60,7 +60,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
   const handleLogout = () => {
     logout();
-    window.location.reload();
+    // Força o redirecionamento imediato limpando a URL para evitar cache de estado
+    window.location.href = window.location.origin + window.location.pathname;
   };
 
   const navItems = [

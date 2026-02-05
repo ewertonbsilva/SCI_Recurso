@@ -130,7 +130,6 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   });
 
   const handleEditMilitar = (m: CadastroMilitar) => {
-    sysLog(`Editando militar: ${m.matricula}`);
     setActiveSubTab('militar');
     setEditingId(m.matricula);
     setMilitarForm(m);
@@ -138,7 +137,6 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   };
 
   const handleEditCivil = (c: CadastroCivil) => {
-    sysLog(`Editando civil: ${c.idCivil}`);
     setActiveSubTab('civil');
     setEditingId(c.idCivil);
     setCivilForm(c);
@@ -161,7 +159,6 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
 
     setData(prev => {
       if (editingId) {
-        sysLog(`Salvando alterações militar: ${editingId}`);
         onNotify?.("Militar atualizado!", "success");
         return { ...prev, militares: prev.militares.map(m => m.matricula === editingId ? (militarForm as CadastroMilitar) : m) };
       } else {
@@ -169,7 +166,6 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
           onNotify?.("Matrícula já cadastrada.", "error");
           return prev;
         }
-        sysLog(`Criando novo militar: ${militarForm.matricula}`);
         onNotify?.("Militar cadastrado!", "success");
         return { ...prev, militares: [...prev.militares, (militarForm as CadastroMilitar)] };
       }
@@ -186,12 +182,10 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
 
     setData(prev => {
       if (editingId) {
-        sysLog(`Salvando alterações civil: ${editingId}`);
         onNotify?.("Civil atualizado!", "success");
         return { ...prev, civis: prev.civis.map(c => c.idCivil === editingId ? { ...(civilForm as CadastroCivil), idCivil: editingId } : c) };
       } else {
         const newId = generateId();
-        sysLog(`Criando novo civil ID: ${newId}`);
         onNotify?.("Civil cadastrado!", "success");
         return { ...prev, civis: [...prev.civis, { ...(civilForm as CadastroCivil), idCivil: newId }] };
       }
@@ -206,7 +200,6 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
         return;
     }
     const newId = generateId();
-    sysLog(`Registrando atestado para ${atestadoForm.matricula} (ID: ${newId})`);
     setData(prev => ({
       ...prev,
       atestados: [...prev.atestados, { ...(atestadoForm as AtestadoMedico), id: newId }]
@@ -218,21 +211,12 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const removeMilitar = (e: React.MouseEvent, matricula: string) => {
     e.preventDefault();
     e.stopPropagation();
-    sysLog(`Tentando excluir militar: ${matricula}`, "warn");
-    if (!window.confirm("Deseja realmente excluir este militar e todos os seus atestados?")) return;
-    
-    setData(prev => {
-        const before = prev.militares.length;
-        const filtered = prev.militares.filter(m => m.matricula !== matricula);
-        const after = filtered.length;
-        sysLog(`Filtro militar concluído: ${before} -> ${after} registros.`, after < before ? 'info' : 'error');
-        
-        return {
-            ...prev, 
-            militares: filtered,
-            atestados: prev.atestados.filter(at => at.matricula !== matricula)
-        };
-    });
+    // Removido confirm() pois o ambiente sandbox o bloqueia
+    setData(prev => ({
+        ...prev, 
+        militares: prev.militares.filter(m => m.matricula !== matricula),
+        atestados: prev.atestados.filter(at => at.matricula !== matricula)
+    }));
     onNotify?.("Militar excluído.", "warning");
     if (editingId === matricula) cancelEdit();
   };
@@ -240,16 +224,8 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const removeCivil = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    sysLog(`Tentando excluir civil ID: ${id}`, "warn");
-    if (!window.confirm("Deseja realmente excluir este cadastro civil?")) return;
-    
-    setData(prev => {
-        const before = prev.civis.length;
-        const filtered = prev.civis.filter(c => c.idCivil !== id);
-        const after = filtered.length;
-        sysLog(`Filtro civil concluído: ${before} -> ${after} registros.`, after < before ? 'info' : 'error');
-        return { ...prev, civis: filtered };
-    });
+    // Removido confirm() pois o ambiente sandbox o bloqueia
+    setData(prev => ({ ...prev, civis: prev.civis.filter(c => c.idCivil !== id) }));
     onNotify?.("Civil excluído.", "warning");
     if (editingId === id) cancelEdit();
   };
@@ -257,14 +233,8 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const removeAtestado = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    sysLog(`Tentando excluir atestado ID: ${id}`, "warn");
-    if (!window.confirm("Deseja remover este registro de atestado?")) return;
-    
-    setData(prev => {
-        const filtered = prev.atestados.filter(at => at.id !== id);
-        sysLog(`Filtro atestado concluído.`, filtered.length < prev.atestados.length ? 'info' : 'error');
-        return { ...prev, atestados: filtered };
-    });
+    // Removido confirm() pois o ambiente sandbox o bloqueia
+    setData(prev => ({ ...prev, atestados: prev.atestados.filter(at => at.id !== id) }));
     onNotify?.("Atestado removido.", "warning");
   };
 

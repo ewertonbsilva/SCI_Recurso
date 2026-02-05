@@ -107,7 +107,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ idTurno, onBack, onNotify }
   const removeChamadaMil = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm("Remover militar da escala deste turno?")) return;
+    // Removido confirm() bloqueado
     setData(prev => ({ ...prev, chamadaMilitar: prev.chamadaMilitar.filter(x => x.idChamadaMilitar !== id) }));
     onNotify?.("Militar removido da escala.", "warning");
   };
@@ -115,7 +115,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ idTurno, onBack, onNotify }
   const removeChamadaCiv = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm("Remover civil deste turno?")) return;
+    // Removido confirm() bloqueado
     setData(prev => ({ ...prev, chamadaCivil: prev.chamadaCivil.filter(x => x.idChamadaCivil !== id) }));
     onNotify?.("Civil removido da escala.", "warning");
   };

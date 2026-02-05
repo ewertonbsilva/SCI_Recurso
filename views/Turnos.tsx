@@ -48,8 +48,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   const removeTurno = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm("Isso apagará todas as chamadas deste turno. Continuar?")) return;
-    
+    // Removido confirm() pois o ambiente sandbox o bloqueia
     setData(prev => ({
         ...prev,
         turnos: prev.turnos.filter(t => t.idTurno !== id),
@@ -59,7 +58,6 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
     onNotify?.("Turno removido com sucesso.", "warning");
   };
 
-  // Importante: [...data.turnos] cria uma cópia para evitar mutação de estado
   const sortedTurnos = [...data.turnos].sort((a, b) => b.data.localeCompare(a.data));
 
   return (

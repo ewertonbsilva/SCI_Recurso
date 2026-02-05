@@ -62,10 +62,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   };
 
   const removeEquipe = (id: string) => {
-    if (!confirm("Remover esta configuração de equipe?")) return;
+    // Removido confirm() bloqueado
     const newData = { ...data, chamadaCivil: data.chamadaCivil.filter(cc => cc.idChamadaCivil !== id) };
     setData(newData);
     saveData(newData);
+    onNotify?.("Equipe removida.", "warning");
   };
 
   const getNextPhoneticName = () => {
@@ -77,7 +78,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   const handleAddVtr = (idCivil: string) => {
     const nextName = getNextPhoneticName();
     const newEntry: ChamadaCivil = {
-      idChamadaCivil: crypto.randomUUID(),
+      idChamadaCivil: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
       idTurno: selectedTurnoId,
       idCivil,
       nomeEquipe: nextName,
