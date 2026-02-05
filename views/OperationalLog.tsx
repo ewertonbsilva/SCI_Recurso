@@ -3,42 +3,74 @@ import React, { useState } from 'react';
 import { Send, FileText, Clock, AlertTriangle, Info, User, Trash2, Users } from 'lucide-react';
 import { loadData, saveData, getCurrentUser } from '../store';
 import { LogOperacional } from '../types';
+import { apiService } from '../apiService';
 
 const OperationalLog: React.FC = () => {
   const [data, setData] = useState(loadData());
+  const [logs, setLogs] = useState<LogOperacional[]>([]);
+  const [turnos, setTurnos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [categoria, setCategoria] = useState<LogOperacional['categoria']>('Informativo');
   const user = getCurrentUser();
 
-  const currentTurno = [...data.turnos].sort((a,b) => b.data.localeCompare(a.data))[0];
+  React.useEffect(() => {
+    loadDadosFromAPI();
+  }, []);
 
-  const handleAddLog = (e: React.FormEvent) => {
+  const loadDadosFromAPI = async () => {
+    try {
+      setLoading(true);
+      const [turnosData, logsData] = await Promise.all([
+        apiService.getTurnos(),
+        apiService.getLogs()
+      ]);
+      setTurnos(turnosData);
+      setLogs(logsData);
+      console.log('Dados de logs carregados:', { turnos: turnosData, logs: logsData });
+    } catch (error) {
+      console.error('Erro ao carregar dados de logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const currentTurno = [...turnos].sort((a,b) => b.data.localeCompare(a.data))[0];
+
+  const handleAddLog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!msg.trim() || !user || !currentTurno) return;
 
     const newLog: LogOperacional = {
       id: crypto.randomUUID(),
-      idTurno: currentTurno.idTurno,
+      id_turno: currentTurno.idTurno,
       timestamp: Date.now(),
       mensagem: msg.trim(),
       categoria,
       usuario: user.nome
     };
 
-    const newData = { ...data, logs: [newLog, ...data.logs] };
-    setData(newData);
-    saveData(newData);
-    setMsg('');
+    try {
+      await apiService.createLog(newLog);
+      setLogs([newLog, ...logs]);
+      setMsg('');
+      console.log('Log adicionado com sucesso:', newLog);
+    } catch (error) {
+      console.error('Erro ao adicionar log:', error);
+    }
   };
 
-  const removeLog = (id: string) => {
-    // Removido confirm() bloqueado
-    const newData = { ...data, logs: data.logs.filter(l => l.id !== id) };
-    setData(newData);
-    saveData(newData);
+  const removeLog = async (id: string) => {
+    try {
+      await apiService.deleteLog(id);
+      setLogs(logs.filter(l => l.id !== id));
+      console.log('Log removido com sucesso:', id);
+    } catch (error) {
+      console.error('Erro ao remover log:', error);
+    }
   };
 
-  const currentLogs = data.logs.filter(l => l.idTurno === currentTurno?.idTurno);
+  const currentLogs = logs.filter(l => l.id_turno === currentTurno?.idTurno);
 
   return (
     <div className="space-y-6">

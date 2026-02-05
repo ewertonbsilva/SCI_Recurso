@@ -4,31 +4,59 @@ import { Users, Shield, Clock, BrainCircuit, Loader2, Sparkles } from 'lucide-re
 import { loadData } from '../store';
 import { analyzeResources } from '../geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { apiService } from '../apiService';
 
 const Dashboard: React.FC = () => {
   const data = loadData();
   const [aiAnalysis, setAiAnalysis] = React.useState<string | null>(null);
   const [loadingAi, setLoadingAi] = React.useState(false);
+  const [militares, setMilitares] = React.useState<any[]>([]);
+  const [civis, setCivis] = React.useState<any[]>([]);
+  const [turnos, setTurnos] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    loadDadosFromAPI();
+  }, []);
+
+  const loadDadosFromAPI = async () => {
+    try {
+      setLoading(true);
+      const [militaresData, civisData, turnosData] = await Promise.all([
+        apiService.getMilitares(),
+        apiService.getCivis(),
+        apiService.getTurnos()
+      ]);
+      setMilitares(militaresData);
+      setCivis(civisData);
+      setTurnos(turnosData);
+      console.log('Dados do dashboard carregados:', { militares: militaresData, civis: civisData, turnos: turnosData });
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = [
-    { label: 'Efetivo Militar', value: data.militares.length, icon: Shield, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-    { label: 'Recursos Civis', value: data.civis.length, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-    { label: 'Histórico Turnos', value: data.turnos.length, icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+    { label: 'Efetivo Militar', value: militares.length, icon: Shield, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+    { label: 'Recursos Civis', value: civis.length, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+    { label: 'Histórico Turnos', value: turnos.length, icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
   ];
 
   const chartData = [
-    { name: 'Militares', count: data.militares.length },
-    { name: 'Civis', count: data.civis.length },
-    { name: 'Turnos', count: data.turnos.length },
+    { name: 'Militares', count: militares.length },
+    { name: 'Civis', count: civis.length },
+    { name: 'Turnos', count: turnos.length },
   ];
 
   const handleAiAnalysis = async () => {
     setLoadingAi(true);
     const analysis = await analyzeResources({
-      militares: data.militares,
-      civis: data.civis,
+      militares: militares,
+      civis: civis,
       chamadas: {
-        civil: data.chamadaCivil,
+        civil: data.chamadaCivil, // Manter do localStorage por enquanto
         militar: data.chamadaMilitar
       }
     });

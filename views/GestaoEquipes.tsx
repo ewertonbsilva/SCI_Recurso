@@ -21,6 +21,7 @@ import {
 import { loadData, saveData } from '../store';
 import { ChamadaCivil, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO } from '../types';
 import { ToastType } from '../components/Toast';
+import { apiService } from '../apiService';
 
 interface GestaoEquipesProps {
   onNotify?: (msg: string, type: ToastType) => void;
@@ -28,6 +29,11 @@ interface GestaoEquipesProps {
 
 const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   const [data, setData] = useState(loadData());
+  const [turnos, setTurnos] = useState<Turno[]>([]);
+  const [chamadaCivil, setChamadaCivil] = useState<ChamadaCivil[]>([]);
+  const [militares, setMilitares] = useState<any[]>([]);
+  const [civis, setCivis] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedTurnoId, setSelectedTurnoId] = useState('');
   const [isVtrMenuOpen, setIsVtrMenuOpen] = useState(false);
   const [isMilitarModalOpen, setIsMilitarModalOpen] = useState<{ open: boolean, idEquipe: string | null }>({ open: false, idEquipe: null });
@@ -47,15 +53,41 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    loadDadosFromAPI();
+  }, []);
+
+  const loadDadosFromAPI = async () => {
+    try {
+      setLoading(true);
+      const [turnosData, chamadaCivilData, militaresData, civisData] = await Promise.all([
+        apiService.getTurnos(),
+        apiService.getCivis(), // Temporário, vamos precisar de endpoint específico
+        apiService.getMilitares(),
+        apiService.getCivis()
+      ]);
+      setTurnos(turnosData);
+      setChamadaCivil(chamadaCivilData);
+      setMilitares(militaresData);
+      setCivis(civisData);
+      console.log('Dados de gestão carregados:', { turnos: turnosData, chamadaCivil: chamadaCivilData });
+    } catch (error) {
+      console.error('Erro ao carregar dados de gestão:', error);
+      onNotify?.('Erro ao carregar dados do banco de dados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const turno = data.turnos.find(t => t.idTurno === selectedTurnoId);
   const equipesNoTurno = data.chamadaCivil.filter(cc => cc.idTurno === selectedTurnoId);
   
   const militaresDisponiveis = data.chamadaMilitar
     .filter(cm => cm.idTurno === selectedTurnoId && cm.presenca && cm.funcao === FuncaoMilitar.COMBATENTE)
-    .filter(cm => !data.chamadaCivil.some(cc => cc.idTurno === selectedTurnoId && cc.matriculaChefe === cm.matricula));
+    .filter(cm => !data.chamadaCivil.some(cc => cc.idTurno === selectedTurnoId && cc.matricula_chefe === cm.matricula));
 
   const updateEquipe = (id: string, updates: Partial<ChamadaCivil>) => {
-    if (updates.status) updates.lastStatusUpdate = Date.now();
+    if (updates.status) updates.last_status_update = Date.now();
     const newData = { ...data, chamadaCivil: data.chamadaCivil.map(cc => cc.idChamadaCivil === id ? { ...cc, ...updates } : cc) };
     setData(newData);
     saveData(newData);
@@ -70,21 +102,21 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   };
 
   const getNextPhoneticName = () => {
-    const nomesEmUso = equipesNoTurno.map(e => e.nomeEquipe);
-    const proximo = ALFABETO_FONETICO.find(nome => !nomesEmUso.includes(nome));
-    return proximo || `Equipe ${equipesNoTurno.length + 1}`;
+    const usedNames = data.chamadaCivil.map(c => c.nome_equipe);
+    const availableNames = Object.values(ALFABETO_FONETICO).filter(name => !usedNames.includes(name));
+    return availableNames[0] || Object.values(ALFABETO_FONETICO)[0];
   };
 
   const handleAddVtr = (idCivil: string) => {
     const nextName = getNextPhoneticName();
     const newEntry: ChamadaCivil = {
-      idChamadaCivil: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
-      idTurno: selectedTurnoId,
-      idCivil,
-      nomeEquipe: nextName,
-      quantCivil: 1,
+      id_chamada_civil: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      id_turno: selectedTurnoId,
+      id_civil: idCivil,
+      nome_equipe: nextName,
+      quant_civil: 1,
       status: StatusEquipe.LIVRE,
-      lastStatusUpdate: Date.now(),
+      last_status_update: Date.now(),
       bairro: ''
     };
     const newData = { ...data, chamadaCivil: [...data.chamadaCivil, newEntry] };
@@ -218,12 +250,12 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {equipesNoTurno.map(cc => {
           const civil = data.civis.find(c => c.idCivil === cc.idCivil);
-          const chefe = data.militares.find(m => m.matricula === cc.matriculaChefe);
+          const chefe = data.militares.find(m => m.matricula === cc.matricula_chefe);
           
           const statusColors = {
             [StatusEquipe.LIVRE]: 'bg-emerald-500',
             [StatusEquipe.EMPENHADA]: 'bg-amber-500',
-            [StatusEquipe.PAUSA]: 'bg-slate-500',
+            [StatusEquipe.PAUSA_OPERACIONAL]: 'bg-slate-500',
           };
 
           return (
@@ -237,8 +269,8 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <input 
-                      value={cc.nomeEquipe || ''}
-                      onChange={e => updateEquipe(cc.idChamadaCivil, { nomeEquipe: e.target.value })}
+                      value={cc.nome_equipe || ''}
+                      onChange={e => updateEquipe(cc.idChamadaCivil, { nome_equipe: e.target.value })}
                       placeholder="Nome da Equipe"
                       className="w-full bg-transparent border-none p-0 font-black text-lg text-slate-900 dark:text-white uppercase tracking-tighter leading-none outline-none focus:ring-0 placeholder:text-slate-300"
                     />
@@ -267,7 +299,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                         </div>
                       </div>
                       <button 
-                        onClick={() => updateEquipe(cc.idChamadaCivil, { matriculaChefe: undefined })}
+                        onClick={() => updateEquipe(cc.idChamadaCivil, { matricula_chefe: undefined })}
                         className="p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover/slot:opacity-100"
                       >
                         <X size={16} />
@@ -309,7 +341,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                   {[
                     { id: StatusEquipe.LIVRE, icon: <Check size={16} />, color: 'bg-emerald-500', hover: 'hover:text-emerald-500', label: 'Livre' },
                     { id: StatusEquipe.EMPENHADA, icon: <Activity size={16} />, color: 'bg-amber-500', hover: 'hover:text-amber-500', label: 'Empenhada' },
-                    { id: StatusEquipe.PAUSA, icon: <Clock size={16} />, color: 'bg-slate-500', hover: 'hover:text-slate-500', label: 'Pausa' }
+                    { id: StatusEquipe.PAUSA_OPERACIONAL, icon: <Clock size={16} />, color: 'bg-slate-500', hover: 'hover:text-slate-500', label: 'Pausa' }
                   ].map(st => (
                     <button 
                       key={st.id}
@@ -376,7 +408,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                       key={m.matricula}
                       onClick={() => {
                         if (isMilitarModalOpen.idEquipe) {
-                          updateEquipe(isMilitarModalOpen.idEquipe, { matriculaChefe: m.matricula });
+                          updateEquipe(isMilitarModalOpen.idEquipe, { matricula_chefe: m.matricula });
                         }
                         setIsMilitarModalOpen({ open: false, idEquipe: null });
                       }}

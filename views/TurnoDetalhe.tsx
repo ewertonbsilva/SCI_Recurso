@@ -4,6 +4,7 @@ import { ArrowLeft, Users, Shield, UserCircle, Download, UserPlus, Trash2, Check
 import { loadData, saveData } from '../store';
 import { ChamadaMilitar, ChamadaCivil, FuncaoMilitar, StatusEquipe, CadastroMilitar, AtestadoMedico } from '../types';
 import { ToastType } from '../components/Toast';
+import { apiService } from '../apiService';
 
 interface TurnoDetalheProps {
   idTurno: string;
@@ -18,12 +19,12 @@ const parseLocalDate = (dateStr: string) => {
 };
 
 const isMilitarRestricted = (militar: CadastroMilitar, atestados: AtestadoMedico[]) => {
-    if (militar.restricaoMedica) return true;
+    if (militar.restricao_medica) return true;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return atestados.some(at => {
       if (at.matricula !== militar.matricula) return false;
-      const inicio = parseLocalDate(at.dataInicio);
+      const inicio = parseLocalDate(at.data_inicio);
       inicio.setHours(0, 0, 0, 0);
       const fim = new Date(inicio);
       fim.setDate(inicio.getDate() + (at.dias - 1));
@@ -37,7 +38,7 @@ const getMilitarActiveAtestado = (matricula: string, atestados: AtestadoMedico[]
     today.setHours(0, 0, 0, 0);
     return atestados.find(at => {
         if (at.matricula !== matricula) return false;
-        const inicio = parseLocalDate(at.dataInicio);
+        const inicio = parseLocalDate(at.data_inicio);
         inicio.setHours(0, 0, 0, 0);
         const fim = new Date(inicio);
         fim.setDate(inicio.getDate() + (at.dias - 1));
@@ -48,6 +49,11 @@ const getMilitarActiveAtestado = (matricula: string, atestados: AtestadoMedico[]
 
 const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ idTurno, onBack, onNotify }) => {
   const [data, setData] = useState(loadData());
+  const [chamadaMilitar, setChamadaMilitar] = useState<ChamadaMilitar[]>([]);
+  const [chamadaCivil, setChamadaCivil] = useState<ChamadaCivil[]>([]);
+  const [militares, setMilitares] = useState<CadastroMilitar[]>([]);
+  const [civis, setCivis] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'militar' | 'civil'>('militar');
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingSelection, setPendingSelection] = useState<string[]>([]);
@@ -55,6 +61,32 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ idTurno, onBack, onNotify }
   useEffect(() => {
     saveData(data);
   }, [data]);
+
+  useEffect(() => {
+    loadDadosFromAPI();
+  }, [idTurno]);
+
+  const loadDadosFromAPI = async () => {
+    try {
+      setLoading(true);
+      const [chamadaMilData, chamadaCivData, militaresData, civisData] = await Promise.all([
+        apiService.getChamadaMilitar(idTurno),
+        apiService.getChamadaCivil(idTurno),
+        apiService.getMilitares(),
+        apiService.getCivis()
+      ]);
+      setChamadaMilitar(chamadaMilData);
+      setChamadaCivil(chamadaCivData);
+      setMilitares(militaresData);
+      setCivis(civisData);
+      console.log('Dados do turno carregados:', { chamadaMil: chamadaMilData, chamadaCiv: chamadaCivData });
+    } catch (error) {
+      console.error('Erro ao carregar dados do turno:', error);
+      onNotify?.('Erro ao carregar dados do banco de dados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const turno = data.turnos.find(t => t.idTurno === idTurno);
   if (!turno) return <div className="p-10 text-center text-slate-400 font-bold uppercase tracking-widest">Turno não encontrado.</div>;
@@ -83,7 +115,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ idTurno, onBack, onNotify }
         idChamadaCivil: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
         idTurno,
         idCivil: id,
-        quantCivil: 1,
+        quant_civil: 1,
         status: StatusEquipe.LIVRE,
         lastStatusUpdate: Date.now(),
         bairro: ''
@@ -222,7 +254,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ idTurno, onBack, onNotify }
                     return (
                       <tr key={cc.idChamadaCivil} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                         <td className="px-8 py-5"><p className="font-black text-slate-900 dark:text-white text-sm uppercase">{c?.nomeCompleto}</p><p className="text-[10px] font-bold text-slate-400 mt-1">{c?.orgaoOrigem}</p></td>
-                        <td className="px-8 py-5 text-center"><input type="number" min="1" value={cc.quantCivil} onChange={e => updateChamadaCiv(cc.idChamadaCivil, { quantCivil: parseInt(e.target.value) || 1 })} className="w-16 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-black text-blue-600 outline-none" /></td>
+                        <td className="px-8 py-5 text-center"><input type="number" min="1" value={cc.quant_civil} onChange={e => updateChamadaCiv(cc.idChamadaCivil, { quant_civil: parseInt(e.target.value) || 1 })} className="w-16 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-black text-blue-600 outline-none" /></td>
                         <td className="px-8 py-5 text-right"><button onClick={(e) => removeChamadaCiv(e, cc.idChamadaCivil)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button></td>
                       </tr>
                     );

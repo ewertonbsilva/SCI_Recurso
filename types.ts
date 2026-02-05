@@ -1,6 +1,11 @@
+export enum UserRole {
+  ADMIN = 'Administrador',
+  OPERADOR = 'Operador'
+}
 
 export enum Periodo {
   MANHA = 'Manhã',
+  TARDE = 'Tarde',
   NOITE = 'Noite'
 }
 
@@ -12,98 +17,141 @@ export enum FuncaoMilitar {
 export enum StatusEquipe {
   LIVRE = 'livre',
   EMPENHADA = 'empenhada',
-  PAUSA = 'pausa-operacional'
+  PAUSA_OPERACIONAL = 'pausa-operacional'
 }
 
-export enum UserRole {
-  ADMIN = 'Administrador',
-  OPERADOR = 'Operador'
+export enum FORCAS {
+  CBMERJ = 'CBMERJ',
+  PMERJ = 'PMERJ',
+  EB = 'EB',
+  MB = 'MB',
+  FAB = 'FAB',
+  OUTROS = 'Outros'
+}
+
+export enum POSTOS_GRAD {
+  SOLDADO = 'Soldado',
+  CABO = 'Cabo',
+  SARGENTO = 'Sargento',
+  SUBTENENTE = 'Subtenente',
+  ASPIRANTE = 'Aspirante',
+  TENENTE = 'Tenente',
+  CAPITAO = 'Capitão',
+  MAJOR = 'Major',
+  TENENTE_CORONEL = 'Tenente-Coronel',
+  CORONEL = 'Coronel'
+}
+
+export enum ORGAOS_ORIGEM {
+  DEFESA_CIVIL = 'Defesa Civil',
+  CRUZ_VERMELHA = 'Cruz Vermelha',
+  VOLUNTARIO = 'Voluntário',
+  EMPRESA_PRIVADA = 'Empresa Privada',
+  OUTROS = 'Outros'
+}
+
+export enum ALFABETO_FONETICO {
+  A = 'A',
+  B = 'B',
+  C = 'C',
+  D = 'D',
+  E = 'E',
+  F = 'F',
+  G = 'G',
+  H = 'H',
+  I = 'I',
+  J = 'J',
+  K = 'K',
+  L = 'L',
+  M = 'M',
+  N = 'N',
+  O = 'O',
+  P = 'P',
+  Q = 'Q',
+  R = 'R',
+  S = 'S',
+  T = 'T',
+  U = 'U',
+  V = 'V',
+  W = 'W',
+  X = 'X',
+  Y = 'Y',
+  Z = 'Z'
 }
 
 export interface User {
   id: string;
   username: string;
   nome: string;
-  password?: string;
+  password: string;
   role: UserRole;
 }
 
 export interface CadastroCivil {
-  idCivil: string;
-  nomeCompleto: string;
+  id_civil: string;
+  nome_completo: string;
   contato: string;
-  orgaoOrigem: string;
+  orgao_origem: string;
   motorista: boolean;
-  modeloVeiculo: string;
-  placaVeiculo: string;
+  modelo_veiculo?: string;
+  placa_veiculo?: string;
 }
 
 export interface CadastroMilitar {
   matricula: string;
-  nomeCompleto: string;
-  postoGrad: string;
-  nomeGuerra: string;
+  nome_completo: string;
+  posto_grad: string;
+  nome_guerra: string;
   rg: string;
   forca: string;
   cpoe: boolean;
   mergulhador: boolean;
-  restricaoMedica: boolean;
-  descRestMed: string;
+  restricao_medica: boolean;
+  desc_rest_med?: string;
+}
+
+export interface Turno {
+  id_turno: string;
+  data: string;
+  periodo: Periodo;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChamadaMilitar {
+  id_chamada_militar: string;
+  id_turno: string;
+  matricula: string;
+  funcao: FuncaoMilitar;
+  presenca: boolean;
+  obs?: string;
+}
+
+export interface ChamadaCivil {
+  id_chamada_civil: string;
+  id_turno: string;
+  id_civil: string;
+  nome_equipe?: string;
+  quant_civil: number;
+  status: StatusEquipe;
+  matricula_chefe?: string;
+  bairro?: string;
+  last_status_update: number;
+}
+
+export interface LogOperacional {
+  id: string;
+  id_turno: string;
+  timestamp: number;
+  mensagem: string;
+  categoria: string;
+  usuario: string;
 }
 
 export interface AtestadoMedico {
   id: string;
   matricula: string;
-  dataInicio: string;
+  data_inicio: string;
   dias: number;
   motivo: string;
 }
-
-export interface Turno {
-  idTurno: string;
-  data: string;
-  periodo: Periodo;
-}
-
-export interface LogOperacional {
-  id: string;
-  idTurno: string;
-  timestamp: number;
-  mensagem: string;
-  categoria: 'Informativo' | 'Urgente' | 'Equipe';
-  usuario: string;
-}
-
-export interface ChamadaCivil {
-  idChamadaCivil: string;
-  idTurno: string;
-  idCivil: string;
-  nomeEquipe?: string;
-  quantCivil: number;
-  status: StatusEquipe;
-  matriculaChefe?: string;
-  bairro?: string;
-  lastStatusUpdate: number;
-}
-
-export interface ChamadaMilitar {
-  idChamadaMilitar: string;
-  idTurno: string;
-  matricula: string;
-  funcao: FuncaoMilitar;
-  presenca: boolean;
-  obs: string;
-}
-
-export const FORCAS = ['CBMERJ', 'PMERJ', 'EB', 'MB', 'FAB', 'Outros'];
-export const POSTOS_GRAD = [
-  'Cel', 'Ten Cel', 'Maj', 'Cap', '1º Ten', '2º Ten', 'Sub Ten', 
-  '1º Sgt', '2º Sgt', '3º Sgt', 'Cb', 'Sd'
-];
-export const ORGAOS_ORIGEM = ['Defesa Civil', 'Cruz Vermelha', 'Voluntário', 'Empresa Privada', 'Outros'];
-
-export const ALFABETO_FONETICO = [
-  'Alfa', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 
-  'Juliett', 'Kilo', 'Lima', 'Mike', 'November', 'Oscar', 'Papa', 'Quebec', 
-  'Romeo', 'Sierra', 'Tango', 'Uniform', 'Victor', 'Whiskey', 'X-ray', 'Yankee', 'Zulu'
-];

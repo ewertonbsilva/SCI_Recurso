@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, Trash2, ChevronRight, Clock } from 'lucide-react';
 import { loadData, saveData } from '../store';
+import { apiService } from '../apiService';
 import { Turno, Periodo } from '../types';
 import { ToastType } from '../components/Toast';
 
@@ -12,12 +13,32 @@ interface TurnosProps {
 
 const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   const [data, setData] = useState(loadData());
+  const [apiTurnos, setApiTurnos] = useState<Turno[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTurnosFromAPI();
+  }, []);
+
+  const loadTurnosFromAPI = async () => {
+    try {
+      setLoading(true);
+      const turnos = await apiService.getTurnos();
+      setApiTurnos(turnos);
+      console.log('Turnos carregados da API:', turnos);
+    } catch (error) {
+      console.error('Erro ao carregar turnos da API:', error);
+      onNotify?.('Erro ao carregar turnos do banco de dados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     saveData(data);
   }, [data]);
 
-  const handleAddTurno = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddTurno = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const dateStr = formData.get('data') as string;
@@ -25,40 +46,41 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
 
     if (!dateStr || !period) return;
 
-    if (data.turnos.find(t => t.data === dateStr && t.periodo === period)) {
+    // Verificar se já existe na API
+    if (apiTurnos.find(t => t.data === dateStr && t.periodo === period)) {
       const df = new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
       onNotify?.(`ERRO: Já existe um turno para o dia ${df} na ${period}.`, 'error');
       return;
     }
 
-    const newTurno: Turno = {
-      idTurno: `${dateStr}_${period}`,
-      data: dateStr,
-      periodo: period,
-    };
-
-    setData(prev => ({ 
-      ...prev, 
-      turnos: [...prev.turnos, newTurno] 
-    }));
-    e.currentTarget.reset();
-    onNotify?.("Turno criado com sucesso!", "success");
+    try {
+      await apiService.createTurno(dateStr, period);
+      onNotify?.("Turno criado com sucesso no banco de dados!", "success");
+      if (e.currentTarget) {
+        e.currentTarget.reset();
+      }
+      await loadTurnosFromAPI(); // Recarregar lista
+    } catch (error) {
+      console.error('Erro ao criar turno:', error);
+      onNotify?.('Erro ao criar turno no banco de dados', 'error');
+    }
   };
 
-  const removeTurno = (e: React.MouseEvent, id: string) => {
+  const removeTurno = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    // Removido confirm() pois o ambiente sandbox o bloqueia
-    setData(prev => ({
-        ...prev,
-        turnos: prev.turnos.filter(t => t.idTurno !== id),
-        chamadaCivil: prev.chamadaCivil.filter(c => c.idTurno !== id),
-        chamadaMilitar: prev.chamadaMilitar.filter(m => m.idTurno !== id),
-    }));
-    onNotify?.("Turno removido com sucesso.", "warning");
+    
+    try {
+      await apiService.deleteTurno(id);
+      onNotify?.("Turno removido com sucesso do banco de dados.", "warning");
+      await loadTurnosFromAPI(); // Recarregar lista
+    } catch (error) {
+      console.error('Erro ao remover turno:', error);
+      onNotify?.('Erro ao remover turno do banco de dados', 'error');
+    }
   };
 
-  const sortedTurnos = [...data.turnos].sort((a, b) => b.data.localeCompare(a.data));
+  const sortedTurnos = [...apiTurnos].sort((a, b) => b.data.localeCompare(a.data));
 
   return (
     <div className="space-y-8">
@@ -84,6 +106,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Período</label>
                 <select name="periodo" required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm font-bold outline-none cursor-pointer">
                   <option value={Periodo.MANHA}>Manhã</option>
+                  <option value={Periodo.TARDE}>Tarde</option>
                   <option value={Periodo.NOITE}>Noite</option>
                 </select>
               </div>
@@ -93,12 +116,15 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 ml-4 mb-2">Turnos Recentes</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 ml-4 mb-2">Turnos Recentes</h3>
+            {loading && <span className="text-xs text-blue-600">Carregando...</span>}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sortedTurnos.map((t) => (
               <div 
-                key={t.idTurno} 
-                onClick={() => onSelectTurno(t.idTurno)}
+                key={t.id_turno} 
+                onClick={() => onSelectTurno(t.id_turno)}
                 className="group bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all border-l-8 border-l-blue-500"
               >
                 <div className="flex items-center gap-5">
@@ -109,12 +135,12 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                   <button onClick={(e) => removeTurno(e, t.idTurno)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
+                   <button onClick={(e) => removeTurno(e, t.id_turno)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
                    <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
             ))}
-            {sortedTurnos.length === 0 && <div className="col-span-full py-20 text-center text-slate-400 italic bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">Nenhum turno cadastrado. Comece criando um novo período.</div>}
+            {!loading && sortedTurnos.length === 0 && <div className="col-span-full py-20 text-center text-slate-400 italic bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">Nenhum turno encontrado no banco de dados. Comece criando um novo período.</div>}
           </div>
         </div>
       </div>

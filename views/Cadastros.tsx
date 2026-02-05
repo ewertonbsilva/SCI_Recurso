@@ -4,6 +4,7 @@ import { Plus, Trash2, Search, UserCheck, ShieldAlert, Info, Ship, Waves, CheckC
 import { loadData, saveData, sysLog } from '../store';
 import { CadastroCivil, CadastroMilitar, FORCAS, POSTOS_GRAD, ORGAOS_ORIGEM, AtestadoMedico } from '../types';
 import { ToastType } from '../components/Toast';
+import { apiService } from '../apiService';
 
 interface CadastrosProps {
   onNotify?: (msg: string, type: ToastType) => void;
@@ -20,14 +21,14 @@ const parseLocalDate = (dateStr: string) => {
 };
 
 const isMilitarRestricted = (militar: CadastroMilitar, atestados: AtestadoMedico[]) => {
-  if (militar.restricaoMedica) return true;
+  if (militar.restricao_medica) return true;
   
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   return atestados.some(at => {
     if (at.matricula !== militar.matricula) return false;
-    const inicio = parseLocalDate(at.dataInicio);
+    const inicio = parseLocalDate(at.data_inicio);
     inicio.setHours(0, 0, 0, 0);
     const fim = new Date(inicio);
     fim.setDate(inicio.getDate() + (at.dias - 1));
@@ -43,7 +44,7 @@ const getMilitarActiveAtestado = (matricula: string, atestados: AtestadoMedico[]
     
     return atestados.find(at => {
         if (at.matricula !== matricula) return false;
-        const inicio = parseLocalDate(at.dataInicio);
+        const inicio = parseLocalDate(at.data_inicio);
         inicio.setHours(0, 0, 0, 0);
         const fim = new Date(inicio);
         fim.setDate(inicio.getDate() + (at.dias - 1));
@@ -91,7 +92,7 @@ const MilitarHoverCard: React.FC<{ militar: CadastroMilitar, atestados: Atestado
               </div>
               <p className="text-[11px] text-red-600 dark:text-red-300 italic">
                 {activeAtestado 
-                  ? `${activeAtestado.motivo} (Até ${parseLocalDate(activeAtestado.dataInicio).toLocaleDateString()})` 
+                  ? `${activeAtestado.motivo} (Até ${parseLocalDate(activeAtestado.data_inicio).toLocaleDateString()})` 
                   : (militar.descRestMed || 'Nenhuma descrição.')}
               </p>
             </div>
@@ -109,6 +110,9 @@ const MilitarHoverCard: React.FC<{ militar: CadastroMilitar, atestados: Atestado
 
 const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const [data, setData] = useState(loadData());
+  const [militares, setMilitares] = useState<CadastroMilitar[]>([]);
+  const [civis, setCivis] = useState<CadastroCivil[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'militar' | 'civil' | 'atestado'>('militar');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -117,16 +121,38 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
     saveData(data);
   }, [data]);
 
+  useEffect(() => {
+    loadDadosFromAPI();
+  }, []);
+
+  const loadDadosFromAPI = async () => {
+    try {
+      setLoading(true);
+      const [militaresData, civisData] = await Promise.all([
+        apiService.getMilitares(),
+        apiService.getCivis()
+      ]);
+      setMilitares(militaresData);
+      setCivis(civisData);
+      console.log('Dados carregados da API:', { militares: militaresData, civis: civisData });
+    } catch (error) {
+      console.error('Erro ao carregar dados da API:', error);
+      onNotify?.('Erro ao carregar dados do banco de dados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const todayStr = new Date().toLocaleDateString('en-CA');
 
   const [militarForm, setMilitarForm] = useState<Partial<CadastroMilitar>>({
-    matricula: '', nomeCompleto: '', postoGrad: POSTOS_GRAD[11], nomeGuerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricaoMedica: false, descRestMed: ''
+    matricula: '', nome_completo: '', posto_grad: POSTOS_GRAD[11], nome_guerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: ''
   });
   const [civilForm, setCivilForm] = useState<Partial<CadastroCivil>>({
-    nomeCompleto: '', contato: '', orgaoOrigem: ORGAOS_ORIGEM[0], motorista: false, modeloVeiculo: '', placaVeiculo: ''
+    nome_completo: '', contato: '', orgao_origem: ORGAOS_ORIGEM[0], motorista: false, modelo_veiculo: '', placa_veiculo: ''
   });
   const [atestadoForm, setAtestadoForm] = useState<Partial<AtestadoMedico>>({
-    matricula: '', dataInicio: todayStr, dias: 1, motivo: ''
+    matricula: '', data_inicio: todayStr, dias: 1, motivo: ''
   });
 
   const handleEditMilitar = (m: CadastroMilitar) => {
@@ -138,42 +164,45 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
 
   const handleEditCivil = (c: CadastroCivil) => {
     setActiveSubTab('civil');
-    setEditingId(c.idCivil);
+    setEditingId(c.id_civil);
     setCivilForm(c);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setMilitarForm({ matricula: '', nomeCompleto: '', postoGrad: POSTOS_GRAD[11], nomeGuerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricaoMedica: false, descRestMed: '' });
-    setCivilForm({ nomeCompleto: '', contato: '', orgaoOrigem: ORGAOS_ORIGEM[0], motorista: false, modeloVeiculo: '', placaVeiculo: '' });
-    setAtestadoForm({ matricula: '', dataInicio: todayStr, dias: 1, motivo: '' });
+    setMilitarForm({ matricula: '', nome_completo: '', posto_grad: POSTOS_GRAD[11], nome_guerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: '' });
+    setCivilForm({ nome_completo: '', contato: '', orgao_origem: ORGAOS_ORIGEM[0], motorista: false, modelo_veiculo: '', placa_veiculo: '' });
+    setAtestadoForm({ matricula: '', data_inicio: todayStr, dias: 1, motivo: '' });
   };
 
-  const handleSaveMilitar = (e: React.FormEvent) => {
+  const handleSaveMilitar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!militarForm.matricula || !militarForm.nomeCompleto) {
+    if (!militarForm.matricula || !militarForm.nome_completo) {
       onNotify?.("Preencha os campos obrigatórios.", "error");
       return;
     }
 
-    setData(prev => {
+    try {
       if (editingId) {
-        onNotify?.("Militar atualizado!", "success");
-        return { ...prev, militares: prev.militares.map(m => m.matricula === editingId ? (militarForm as CadastroMilitar) : m) };
+        await apiService.updateMilitar(editingId, militarForm);
+        onNotify?.("Militar atualizado com sucesso!", "success");
       } else {
-        if (prev.militares.some(m => m.matricula === militarForm.matricula)) {
-          onNotify?.("Matrícula já cadastrada.", "error");
-          return prev;
-        }
-        onNotify?.("Militar cadastrado!", "success");
-        return { ...prev, militares: [...prev.militares, (militarForm as CadastroMilitar)] };
+        await apiService.createMilitar(militarForm);
+        onNotify?.("Militar cadastrado com sucesso!", "success");
       }
-    });
+      
+      setMilitarForm({ matricula: '', nome_completo: '', posto_grad: POSTOS_GRAD[11], nome_guerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: '' });
+      setEditingId(null);
+      await loadDadosFromAPI();
+    } catch (error) {
+      console.error('Erro ao salvar militar:', error);
+      onNotify?.('Erro ao salvar militar no banco de dados', 'error');
+    }
     cancelEdit();
   };
 
-  const handleSaveCivil = (e: React.FormEvent) => {
+  const handleSaveCivil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!civilForm.nomeCompleto || !civilForm.contato) {
       onNotify?.("Preencha os campos obrigatórios.", "error");
@@ -195,7 +224,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
 
   const handleSaveAtestado = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!atestadoForm.matricula || !atestadoForm.dataInicio || !atestadoForm.dias) {
+    if (!atestadoForm.matricula || !atestadoForm.data_inicio || !atestadoForm.dias) {
         onNotify?.("Preencha os campos obrigatórios.", "error");
         return;
     }
@@ -204,7 +233,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
       ...prev,
       atestados: [...prev.atestados, { ...(atestadoForm as AtestadoMedico), id: newId }]
     }));
-    setAtestadoForm({ matricula: '', dataInicio: todayStr, dias: 1, motivo: '' });
+    setAtestadoForm({ matricula: '', data_inicio: todayStr, dias: 1, motivo: '' });
     onNotify?.("Atestado registrado!", "success");
   };
 
@@ -326,13 +355,17 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                         <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Posto/Grad</label>
                         <select value={militarForm.postoGrad} onChange={e => setMilitarForm({...militarForm, postoGrad: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none">
-                            {POSTOS_GRAD.map(p => <option key={p} value={p}>{p}</option>)}
+                            {Object.values(POSTOS_GRAD).map(posto => (
+                                <option key={posto} value={posto}>{posto}</option>
+                            ))}
                         </select>
                         </div>
                         <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Força</label>
                         <select value={militarForm.forca} onChange={e => setMilitarForm({...militarForm, forca: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none">
-                            {FORCAS.map(f => <option key={f} value={f}>{f}</option>)}
+                            {Object.values(FORCAS).map(f => (
+                                <option key={f} value={f}>{f}</option>
+                            ))}
                         </select>
                         </div>
                     </div>
@@ -374,7 +407,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Órgão</label>
                         <select value={civilForm.orgaoOrigem} onChange={e => setCivilForm({...civilForm, orgaoOrigem: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none">
-                            {ORGAOS_ORIGEM.map(o => <option key={o} value={o}>{o}</option>)}
+                            {Object.values(ORGAOS_ORIGEM).map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

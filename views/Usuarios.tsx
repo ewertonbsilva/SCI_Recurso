@@ -4,6 +4,7 @@ import { UserPlus, Trash2, User as UserIcon, Users, Edit2 } from 'lucide-react';
 import { loadData, saveData } from '../store';
 import { User, UserRole } from '../types';
 import { ToastType } from '../components/Toast';
+import { apiService } from '../apiService';
 
 interface UsuariosProps {
   onNotify?: (msg: string, type: ToastType) => void;
@@ -11,14 +12,33 @@ interface UsuariosProps {
 
 const Usuarios: React.FC<UsuariosProps> = ({ onNotify }) => {
   const [data, setData] = useState(loadData());
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
+  React.useEffect(() => {
+    loadDadosFromAPI();
+  }, []);
+
+  const loadDadosFromAPI = async () => {
+    try {
+      setLoading(true);
+      const usersData = await apiService.getUsers();
+      setUsers(usersData);
+      console.log('Usuários carregados:', usersData);
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const username = formData.get('username') as string;
 
-    if (data.users.some(u => u.username === username)) {
+    if (users.some(u => u.username === username)) {
       onNotify?.("Este nome de usuário já existe.", "error");
       return;
     }
@@ -31,23 +51,31 @@ const Usuarios: React.FC<UsuariosProps> = ({ onNotify }) => {
       role: formData.get('role') as UserRole,
     };
 
-    const newData = { ...data, users: [...data.users, newUser] };
-    setData(newData);
-    saveData(newData);
-    setIsAdding(false);
-    onNotify?.("Usuário criado com sucesso!", "success");
+    try {
+      await apiService.createUser(newUser);
+      setUsers([newUser, ...users]);
+      setIsAdding(false);
+      onNotify?.("Usuário criado com sucesso!", "success");
+    } catch (error) {
+      console.error('Erro ao criar usuário:', error);
+      onNotify?.('Erro ao criar usuário no banco de dados', 'error');
+    }
   };
 
-  const removeUser = (id: string) => {
-    if (data.users.length <= 1) {
+  const removeUser = async (id: string) => {
+    if (users.length <= 1) {
       onNotify?.("Não é possível remover o único usuário.", "error");
       return;
     }
-    // Removido confirm() bloqueado
-    const newData = { ...data, users: data.users.filter(u => u.id !== id) };
-    setData(newData);
-    saveData(newData);
-    onNotify?.("Usuário removido.", "warning");
+    
+    try {
+      await apiService.deleteUser(id);
+      setUsers(users.filter(u => u.id !== id));
+      onNotify?.("Usuário removido.", "warning");
+    } catch (error) {
+      console.error('Erro ao remover usuário:', error);
+      onNotify?.('Erro ao remover usuário do banco de dados', 'error');
+    }
   };
 
   return (
