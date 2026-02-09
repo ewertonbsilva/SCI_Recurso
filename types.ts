@@ -21,11 +21,12 @@ export enum StatusEquipe {
 }
 
 export enum FORCAS {
-  CBMERJ = 'CBMERJ',
-  PMERJ = 'PMERJ',
+  CBMAC = 'CBMAC',
+  PMAC = 'PMAC',
   EB = 'EB',
   MB = 'MB',
   FAB = 'FAB',
+  PC = 'PC',
   OUTROS = 'Outros'
 }
 

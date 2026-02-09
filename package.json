@@ -1,13 +1,14 @@
 {
-  "name": "sci-recurso---gestão-de-efetivo",
+  "name": "sci-recurso-gestao-efetivo",
   "private": true,
   "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "ts-node --project tsconfig.server.json server.ts",
-    "server:dev": "nodemon --project tsconfig.server.json server.ts",
+    "server": "ts-node server.ts",
+    "server:dev": "nodemon server.ts",
     "start": "concurrently \"npm run server:dev\" \"npm run dev\""
   },
   "dependencies": {

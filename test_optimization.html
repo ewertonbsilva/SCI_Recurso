@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste de Otimização - Views e SP</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        .result { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Teste de Otimização do Sistema</h1>
+    
+    <div class="test-section">
+        <h2>1. Views Otimizadas (Reais do Banco)</h2>
+        <button onclick="testView('militares-restricoes')">Testar vw_militares_restricoes</button>
+        <button onclick="testView('resumo-civis-turno')">Testar vw_resumo_civis_turno</button>
+        <button onclick="testView('resumo-militares-turno')">Testar vw_resumo_militares_turno</button>
+        <div id="view-results" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Stored Procedures (Reais do Banco)</h2>
+        <button onclick="testCriarTurno()">Testar sp_criar_turno</button>
+        <button onclick="testCriarTurnoDebug()">🔧 DEBUG sp_criar_turno</button>
+        <button onclick="testEfetivoDisponivel()">Testar sp_efetivo_disponivel</button>
+        <div id="sp-results" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Performance Comparison</h2>
+        <button onclick="comparePerformance()">Comparar Performance</button>
+        <div id="performance-results" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+
+        async function testView(viewName) {
+            const resultDiv = document.getElementById('view-results');
+            resultDiv.innerHTML = '<p>Testando ' + viewName + '...</p>';
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${API_BASE}/vw/${viewName}`);
+                const endTime = performance.now();
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ ${viewName} - SUCESSO</h3>
+                            <p><strong>Tempo de resposta:</strong> ${(endTime - startTime).toFixed(2)}ms</p>
+                            <p><strong>Registros retornados:</strong> ${data.length}</p>
+                            <details>
+                                <summary>Ver dados</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ ${viewName} - ERRO</h3>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testCriarTurno() {
+            const resultDiv = document.getElementById('sp-results');
+            resultDiv.innerHTML = '<p>Testando sp_criar_turno...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/sp/criar-turno`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        data: new Date().toISOString().split('T')[0], 
+                        periodo: 'Manhã' // Valor válido do ENUM
+                    })
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ sp_criar_turno - SUCESSO</h3>
+                            <p><strong>ID do turno criado:</strong> ${data.id_turno}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ sp_criar_turno - ERRO</h3>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testCriarTurnoDebug() {
+            const resultDiv = document.getElementById('sp-results');
+            resultDiv.innerHTML = '<p>🔧 DEBUG sp_criar_turno...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/test-sp-criar-turno`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        data: new Date().toISOString().split('T')[0], 
+                        periodo: 'Manhã' // Valor válido do ENUM
+                    })
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>🔧 DEBUG sp_criar_turno - SUCESSO</h3>
+                            <p><strong>Success:</strong> ${data.success}</p>
+                            <p><strong>ID Criado:</strong> ${data.result?.id_turno || 'N/A'}</p>
+                            <details>
+                                <summary>Ver Debug Completo</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>🔧 DEBUG sp_criar_turno - ERRO</h3>
+                            <p><strong>Erro:</strong> ${data.error}</p>
+                            <p><strong>Detalhes:</strong> ${data.details || 'N/A'}</p>
+                            <details>
+                                <summary>Ver Stack Trace</summary>
+                                <pre>${data.stack || 'N/A'}</pre>
+                            </details>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>🔧 DEBUG sp_criar_turno - ERRO DE REDE</h3>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testEfetivoDisponivel() {
+            const resultDiv = document.getElementById('sp-results');
+            resultDiv.innerHTML = '<p>Testando sp_efetivo_disponivel...</p>';
+            
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await fetch(`${API_BASE}/sp/efetivo-disponivel?data=${today}&periodo=Manhã`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ sp_efetivo_disponivel - SUCESSO</h3>
+                            <p><strong>Efetivo disponível:</strong> ${data.length} pessoas</p>
+                            <details>
+                                <summary>Ver dados</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ sp_efetivo_disponivel - ERRO</h3>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function comparePerformance() {
+            const resultDiv = document.getElementById('performance-results');
+            resultDiv.innerHTML = '<p>Comparando performance...</p>';
+            
+            try {
+                // Teste com view otimizada
+                const startView = performance.now();
+                const viewResponse = await fetch(`${API_BASE}/vw/militares-restricoes`);
+                
+                if (!viewResponse.ok) {
+                    throw new Error(`View API error: ${viewResponse.status}`);
+                }
+                
+                const viewData = await viewResponse.json();
+                const endView = performance.now();
+                const viewTime = endView - startView;
+                
+                // Teste com query tradicional (todos os atestados)
+                const startQuery = performance.now();
+                const queryResponse = await fetch(`${API_BASE}/atestados`);
+                
+                if (!queryResponse.ok) {
+                    throw new Error(`Query API error: ${queryResponse.status}`);
+                }
+                
+                const queryData = await queryResponse.json();
+                const endQuery = performance.now();
+                const queryTime = endQuery - startQuery;
+                
+                const improvement = ((queryTime - viewTime) / queryTime * 100).toFixed(1);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>📊 Comparação de Performance</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <th style="border: 1px solid #ddd; padding: 8px;">Método</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">Tempo (ms)</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">Registros</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">Status</th>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ddd; padding: 8px;">View Otimizada</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">${viewTime.toFixed(2)}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">${viewData.length}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">✅</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ddd; padding: 8px;">Query Tradicional</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">${queryTime.toFixed(2)}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">${queryData.length}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">✅</td>
+                            </tr>
+                        </table>
+                        <p><strong>🚀 Melhoria de performance:</strong> ${improvement}%</p>
+                        <p><strong>✨ Resultado:</strong> ${improvement > 0 ? 'A view foi mais rápida!' : 'Performance similar'}</p>
+                        <p><small><strong>Nota:</strong> Comparando todos os registros (view alterada para mostrar tudo)</small>
+                        <p><small>View: ${viewData.length} registros | Query: ${queryData.length} registros</small></p>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Erro na comparação</h3>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                        <p><strong>Solução:</strong> Verifique se ambos os endpoints estão funcionando antes de comparar.</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -16,6 +16,12 @@ const generateId = () => {
 
 const parseLocalDate = (dateStr: string) => {
   if (!dateStr) return new Date();
+  
+  // Se for formato ISO (com T), extrair apenas a parte da data
+  if (dateStr.includes('T')) {
+    dateStr = dateStr.split('T')[0];
+  }
+  
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
@@ -61,8 +67,8 @@ const MilitarHoverCard: React.FC<{ militar: CadastroMilitar, atestados: Atestado
     <div className="absolute top-0 right-full mr-4 w-80 p-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2.5rem] z-[100] hidden group-hover:block animate-in fade-in slide-in-from-right-4 duration-300 pointer-events-none">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h4 className="font-black text-slate-900 dark:text-white text-base leading-tight">{militar.nomeCompleto}</h4>
-          <p className="text-[10px] text-blue-500 font-black uppercase mt-1 tracking-widest">{militar.postoGrad} {militar.nomeGuerra} • {militar.forca}</p>
+          <h4 className="font-black text-slate-900 dark:text-white text-base leading-tight">{militar.nome_completo}</h4>
+          <p className="text-[10px] text-blue-500 font-black uppercase mt-1 tracking-widest">{militar.posto_grad} {militar.nome_guerra} • {militar.forca}</p>
         </div>
       </div>
 
@@ -92,7 +98,12 @@ const MilitarHoverCard: React.FC<{ militar: CadastroMilitar, atestados: Atestado
               </div>
               <p className="text-[11px] text-red-600 dark:text-red-300 italic">
                 {activeAtestado 
-                  ? `${activeAtestado.motivo} (Até ${parseLocalDate(activeAtestado.data_inicio).toLocaleDateString()})` 
+                  ? `${activeAtestado.motivo} (Até ${(() => {
+                      const inicio = parseLocalDate(activeAtestado.data_inicio);
+                      const fim = new Date(inicio);
+                      fim.setDate(inicio.getDate() + (activeAtestado.dias - 1));
+                      return fim.toLocaleDateString();
+                    })()})` 
                   : (militar.descRestMed || 'Nenhuma descrição.')}
               </p>
             </div>
@@ -108,8 +119,21 @@ const MilitarHoverCard: React.FC<{ militar: CadastroMilitar, atestados: Atestado
   );
 };
 
+// Validar telefone
+const validateTelefone = (telefone: string): boolean => {
+  const cleaned = telefone.replace(/\D/g, '');
+  return cleaned.length >= 10 && cleaned.length <= 11;
+};
+
+// Validar placa de veículo (formato brasileiro)
+const validatePlaca = (placa: string): boolean => {
+  if (!placa) return true; // opcional
+  const pattern = /^[A-Z]{3}[0-9][A-Z0-9][0-9]$/; // Mercosul: ABC1D23 ou ABC1234
+  return pattern.test(placa.replace(/[-\s]/g, '').toUpperCase());
+};
+
 const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
-  const [data, setData] = useState(loadData());
+  const [atestados, setAtestados] = useState<AtestadoMedico[]>([]);
   const [militares, setMilitares] = useState<CadastroMilitar[]>([]);
   const [civis, setCivis] = useState<CadastroCivil[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,9 +141,6 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    saveData(data);
-  }, [data]);
 
   useEffect(() => {
     loadDadosFromAPI();
@@ -128,13 +149,23 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const loadDadosFromAPI = async () => {
     try {
       setLoading(true);
-      const [militaresData, civisData] = await Promise.all([
+      console.log('Carregando dados da API...');
+      
+      const [militaresData, civisData, atestadosData] = await Promise.all([
         apiService.getMilitares(),
-        apiService.getCivis()
+        apiService.getCivis(),
+        apiService.getAtestados()
       ]);
+      
       setMilitares(militaresData);
       setCivis(civisData);
-      console.log('Dados carregados da API:', { militares: militaresData, civis: civisData });
+      setAtestados(atestadosData);
+      
+      console.log('Dados carregados com sucesso:', { 
+        militares: militaresData.length, 
+        civis: civisData.length,
+        atestados: atestadosData.length 
+      });
     } catch (error) {
       console.error('Erro ao carregar dados da API:', error);
       onNotify?.('Erro ao carregar dados do banco de dados', 'error');
@@ -146,10 +177,10 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const todayStr = new Date().toLocaleDateString('en-CA');
 
   const [militarForm, setMilitarForm] = useState<Partial<CadastroMilitar>>({
-    matricula: '', nome_completo: '', posto_grad: POSTOS_GRAD[11], nome_guerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: ''
+    matricula: '', nome_completo: '', posto_grad: 'Soldado', nome_guerra: '', rg: '', forca: 'CBMAC', cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: ''
   });
   const [civilForm, setCivilForm] = useState<Partial<CadastroCivil>>({
-    nome_completo: '', contato: '', orgao_origem: ORGAOS_ORIGEM[0], motorista: false, modelo_veiculo: '', placa_veiculo: ''
+    nome_completo: '', contato: '', orgao_origem: 'Defesa Civil', motorista: false, modelo_veiculo: '', placa_veiculo: ''
   });
   const [atestadoForm, setAtestadoForm] = useState<Partial<AtestadoMedico>>({
     matricula: '', data_inicio: todayStr, dias: 1, motivo: ''
@@ -171,8 +202,8 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setMilitarForm({ matricula: '', nome_completo: '', posto_grad: POSTOS_GRAD[11], nome_guerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: '' });
-    setCivilForm({ nome_completo: '', contato: '', orgao_origem: ORGAOS_ORIGEM[0], motorista: false, modelo_veiculo: '', placa_veiculo: '' });
+    setMilitarForm({ matricula: '', nome_completo: '', posto_grad: 'Soldado', nome_guerra: '', rg: '', forca: 'CBMAC', cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: '' });
+    setCivilForm({ nome_completo: '', contato: '', orgao_origem: 'Defesa Civil', motorista: false, modelo_veiculo: '', placa_veiculo: '' });
     setAtestadoForm({ matricula: '', data_inicio: todayStr, dias: 1, motivo: '' });
   };
 
@@ -192,7 +223,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
         onNotify?.("Militar cadastrado com sucesso!", "success");
       }
       
-      setMilitarForm({ matricula: '', nome_completo: '', posto_grad: POSTOS_GRAD[11], nome_guerra: '', rg: '', forca: FORCAS[0], cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: '' });
+      setMilitarForm({ matricula: '', nome_completo: '', posto_grad: 'Soldado', nome_guerra: '', rg: '', forca: 'CBMAC', cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: '' });
       setEditingId(null);
       await loadDadosFromAPI();
     } catch (error) {
@@ -204,84 +235,116 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
 
   const handleSaveCivil = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!civilForm.nomeCompleto || !civilForm.contato) {
+    if (!civilForm.nome_completo || !civilForm.contato) {
       onNotify?.("Preencha os campos obrigatórios.", "error");
       return;
     }
 
-    setData(prev => {
+    // Validar telefone
+    if (!validateTelefone(civilForm.contato)) {
+      onNotify?.("Telefone inválido. Use o formato (00) 00000-0000.", "error");
+      return;
+    }
+
+    // Validar placa se preenchida
+    if (civilForm.placa_veiculo && !validatePlaca(civilForm.placa_veiculo)) {
+      onNotify?.("Placa inválida. Use o formato ABC1234 ou ABC1D23.", "error");
+      return;
+    }
+
+    try {
       if (editingId) {
-        onNotify?.("Civil atualizado!", "success");
-        return { ...prev, civis: prev.civis.map(c => c.idCivil === editingId ? { ...(civilForm as CadastroCivil), idCivil: editingId } : c) };
+        await apiService.updateCivil(editingId, civilForm);
+        onNotify?.("Civil atualizado com sucesso!", "success");
       } else {
-        const newId = generateId();
-        onNotify?.("Civil cadastrado!", "success");
-        return { ...prev, civis: [...prev.civis, { ...(civilForm as CadastroCivil), idCivil: newId }] };
+        await apiService.createCivil(civilForm);
+        onNotify?.("Civil cadastrado com sucesso!", "success");
       }
-    });
+      
+      setCivilForm({ nome_completo: '', contato: '', orgao_origem: 'Defesa Civil', motorista: false, modelo_veiculo: '', placa_veiculo: '' });
+      setEditingId(null);
+      await loadDadosFromAPI();
+    } catch (error) {
+      console.error('Erro ao salvar civil:', error);
+      onNotify?.('Erro ao salvar civil no banco de dados', 'error');
+    }
     cancelEdit();
   };
 
-  const handleSaveAtestado = (e: React.FormEvent) => {
+  const handleSaveAtestado = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!atestadoForm.matricula || !atestadoForm.data_inicio || !atestadoForm.dias) {
         onNotify?.("Preencha os campos obrigatórios.", "error");
         return;
     }
-    const newId = generateId();
-    setData(prev => ({
-      ...prev,
-      atestados: [...prev.atestados, { ...(atestadoForm as AtestadoMedico), id: newId }]
-    }));
-    setAtestadoForm({ matricula: '', data_inicio: todayStr, dias: 1, motivo: '' });
-    onNotify?.("Atestado registrado!", "success");
+
+    try {
+        await apiService.createAtestado(atestadoForm);
+        setAtestadoForm({ matricula: '', data_inicio: todayStr, dias: 1, motivo: '' });
+        onNotify?.("Atestado registrado com sucesso!", "success");
+        await loadDadosFromAPI();
+    } catch (error) {
+        console.error('Erro ao salvar atestado:', error);
+        onNotify?.('Erro ao salvar atestado no banco de dados', 'error');
+    }
   };
 
-  const removeMilitar = (e: React.MouseEvent, matricula: string) => {
+  const removeMilitar = async (e: React.MouseEvent, matricula: string) => {
     e.preventDefault();
     e.stopPropagation();
-    // Removido confirm() pois o ambiente sandbox o bloqueia
-    setData(prev => ({
-        ...prev, 
-        militares: prev.militares.filter(m => m.matricula !== matricula),
-        atestados: prev.atestados.filter(at => at.matricula !== matricula)
-    }));
-    onNotify?.("Militar excluído.", "warning");
+    try {
+      await apiService.deleteMilitar(matricula);
+      onNotify?.("Militar excluído com sucesso.", "warning");
+      await loadDadosFromAPI();
+    } catch (error) {
+      console.error('Erro ao excluir militar:', error);
+      onNotify?.('Erro ao excluir militar', 'error');
+    }
     if (editingId === matricula) cancelEdit();
   };
 
-  const removeCivil = (e: React.MouseEvent, id: string) => {
+  const removeCivil = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    // Removido confirm() pois o ambiente sandbox o bloqueia
-    setData(prev => ({ ...prev, civis: prev.civis.filter(c => c.idCivil !== id) }));
-    onNotify?.("Civil excluído.", "warning");
+    try {
+      await apiService.deleteCivil(id);
+      onNotify?.("Civil excluído com sucesso.", "warning");
+      await loadDadosFromAPI();
+    } catch (error) {
+      console.error('Erro ao excluir civil:', error);
+      onNotify?.('Erro ao excluir civil', 'error');
+    }
     if (editingId === id) cancelEdit();
   };
 
-  const removeAtestado = (e: React.MouseEvent, id: string) => {
+  const removeAtestado = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    // Removido confirm() pois o ambiente sandbox o bloqueia
-    setData(prev => ({ ...prev, atestados: prev.atestados.filter(at => at.id !== id) }));
-    onNotify?.("Atestado removido.", "warning");
+    try {
+      await apiService.deleteAtestado(id);
+      onNotify?.("Atestado removido com sucesso.", "warning");
+      await loadDadosFromAPI();
+    } catch (error) {
+      console.error('Erro ao excluir atestado:', error);
+      onNotify?.('Erro ao excluir atestado', 'error');
+    }
   };
 
-  const filteredMilitares = data.militares.filter(m => 
-    m.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    m.nomeGuerra.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredMilitares = militares.filter(m => 
+    m.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    m.nome_guerra.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.matricula.includes(searchTerm)
   );
 
-  const filteredCivis = data.civis.filter(c => 
-    c.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.orgaoOrigem.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCivis = civis.filter(c => 
+    c.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    c.orgao_origem.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredAtestados = data.atestados.filter(at => {
-    const m = data.militares.find(mil => mil.matricula === at.matricula);
-    return m?.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) || at.matricula.includes(searchTerm);
-  }).sort((a,b) => b.dataInicio.localeCompare(a.dataInicio));
+  const filteredAtestados = atestados.filter(at => {
+    const m = militares.find(mil => mil.matricula === at.matricula);
+    return m?.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) || at.matricula.includes(searchTerm);
+  }).sort((a,b) => b.data_inicio.localeCompare(a.data_inicio));
 
   return (
     <div className="space-y-8">
@@ -314,13 +377,13 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Militar</label>
                         <select value={atestadoForm.matricula} onChange={e => setAtestadoForm({...atestadoForm, matricula: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none cursor-pointer">
                             <option value="">Selecione o Militar...</option>
-                            {data.militares.map(m => <option key={m.matricula} value={m.matricula}>{m.postoGrad} {m.nomeGuerra} ({m.matricula})</option>)}
+                            {militares.map(m => <option key={m.matricula} value={m.matricula}>{m.posto_grad} {m.nome_guerra} ({m.matricula})</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Data Início</label>
-                            <input type="date" value={atestadoForm.dataInicio} onChange={e => setAtestadoForm({...atestadoForm, dataInicio: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                            <input type="date" value={atestadoForm.data_inicio} onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Dias</label>
@@ -349,12 +412,12 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Nome Completo</label>
-                        <input value={militarForm.nomeCompleto} onChange={e => setMilitarForm({...militarForm, nomeCompleto: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                        <input value={militarForm.nome_completo} onChange={e => setMilitarForm({...militarForm, nome_completo: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Posto/Grad</label>
-                        <select value={militarForm.postoGrad} onChange={e => setMilitarForm({...militarForm, postoGrad: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none">
+                        <select value={militarForm.posto_grad} onChange={e => setMilitarForm({...militarForm, posto_grad: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none">
                             {Object.values(POSTOS_GRAD).map(posto => (
                                 <option key={posto} value={posto}>{posto}</option>
                             ))}
@@ -371,7 +434,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Nome de Guerra</label>
-                        <input value={militarForm.nomeGuerra} onChange={e => setMilitarForm({...militarForm, nomeGuerra: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                        <input value={militarForm.nome_guerra} onChange={e => setMilitarForm({...militarForm, nome_guerra: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
                     </div>
                     <div className="flex gap-4 p-4 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800/50">
                         <label className="flex items-center gap-2 cursor-pointer group">
@@ -383,14 +446,14 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                         <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-600">CMAUT</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={militarForm.restricaoMedica} onChange={(e) => { setMilitarForm({...militarForm, restricaoMedica: e.target.checked}) }} className="w-4 h-4 rounded-lg accent-red-600" />
+                        <input type="checkbox" checked={militarForm.restricao_medica} onChange={(e) => { setMilitarForm({...militarForm, restricao_medica: e.target.checked}) }} className="w-4 h-4 rounded-lg accent-red-600" />
                         <span className="text-[10px] font-bold text-red-500">RESTRIÇÃO</span>
                         </label>
                     </div>
-                    {militarForm.restricaoMedica && (
+                    {militarForm.restricao_medica && (
                         <div className="space-y-1.5 animate-in slide-in-from-top-2">
                              <label className="text-[10px] font-black uppercase text-red-500 tracking-widest ml-4 flex items-center gap-2"><ShieldAlert size={12} /> Descrição Obrigatória</label>
-                             <input value={militarForm.descRestMed} onChange={e => setMilitarForm({...militarForm, descRestMed: e.target.value})} placeholder="Motivo da restrição..." required className={`w-full px-5 py-3.5 bg-red-50 dark:bg-red-950/20 border rounded-[1.5rem] text-sm outline-none transition-all ${!militarForm.descRestMed?.trim() ? 'border-red-400 ring-2 ring-red-100' : 'border-red-100 dark:border-red-900/30'}`} />
+                             <input value={militarForm.desc_rest_med} onChange={e => setMilitarForm({...militarForm, desc_rest_med: e.target.value})} placeholder="Motivo da restrição..." required className={`w-full px-5 py-3.5 bg-red-50 dark:bg-red-950/20 border rounded-[1.5rem] text-sm outline-none transition-all ${!militarForm.desc_rest_med?.trim() ? 'border-red-400 ring-2 ring-red-100' : 'border-red-100 dark:border-red-900/30'}`} />
                         </div>
                     )}
                     </>
@@ -398,26 +461,32 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                     <>
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Nome Completo</label>
-                        <input value={civilForm.nomeCompleto} onChange={e => setCivilForm({...civilForm, nomeCompleto: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                        <input value={civilForm.nome_completo} onChange={e => setCivilForm({...civilForm, nome_completo: e.target.value})} required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Contato</label>
                         <input value={civilForm.contato} onChange={e => setCivilForm({...civilForm, contato: e.target.value})} required placeholder="(00) 00000-0000" className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                        {civilForm.contato && !validateTelefone(civilForm.contato) && (
+                          <p className="text-red-500 text-xs mt-1 ml-4">Telefone inválido</p>
+                        )}
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Órgão</label>
-                        <select value={civilForm.orgaoOrigem} onChange={e => setCivilForm({...civilForm, orgaoOrigem: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none">
+                        <select value={civilForm.orgao_origem} onChange={e => setCivilForm({...civilForm, orgao_origem: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none">
                             {Object.values(ORGAOS_ORIGEM).map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Vtr (Modelo)</label>
-                        <input value={civilForm.modeloVeiculo} onChange={e => setCivilForm({...civilForm, modeloVeiculo: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                        <input value={civilForm.modelo_veiculo} onChange={e => setCivilForm({...civilForm, modelo_veiculo: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
                         </div>
                         <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Placa</label>
-                        <input value={civilForm.placaVeiculo} onChange={e => setCivilForm({...civilForm, placaVeiculo: e.target.value.toUpperCase()})} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                        <input value={civilForm.placa_veiculo} onChange={e => setCivilForm({...civilForm, placa_veiculo: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)})} placeholder="ABC1234" className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+                        {civilForm.placa_veiculo && !validatePlaca(civilForm.placa_veiculo) && (
+                          <p className="text-red-500 text-xs mt-1 ml-4">Placa inválida (ex: ABC1234)</p>
+                        )}
                         </div>
                     </div>
                     <div className="p-4 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800/50">
@@ -441,6 +510,13 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-visible">
+            {loading ? (
+              <div className="py-20 text-center text-slate-400 font-medium">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                Carregando dados do banco de dados...
+              </div>
+            ) : (
+              <>
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                 <tr>
@@ -452,13 +528,13 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {activeSubTab === 'militar' ? (
                   filteredMilitares.map((m) => {
-                    const restricted = isMilitarRestricted(m, data.atestados);
+                    const restricted = isMilitarRestricted(m, atestados);
                     return (
-                        <tr key={m.matricula} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === m.matricula ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                    <tr key={m.matricula} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === m.matricula ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
                         <td className="px-8 py-5 relative">
-                            <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white cursor-help">{m.postoGrad} {m.nomeGuerra}<Info size={12} className="text-slate-300 group-hover:text-blue-500" /></div>
+                            <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white cursor-help">{m.posto_grad} {m.nome_guerra}<Info size={12} className="text-slate-300 group-hover:text-blue-500" /></div>
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{m.matricula} • {m.forca}</div>
-                            <MilitarHoverCard militar={m} atestados={data.atestados} />
+                            <MilitarHoverCard militar={m} atestados={atestados} />
                         </td>
                         <td className="px-8 py-5 text-center">
                             <div className="flex justify-center gap-1.5">
@@ -478,37 +554,43 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                   })
                 ) : activeSubTab === 'civil' ? (
                   filteredCivis.map((c) => (
-                    <tr key={c.idCivil} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === c.idCivil ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                    <tr key={c.id_civil} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === c.id_civil ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
                       <td className="px-8 py-5">
-                        <div className="font-black text-slate-900 dark:text-white">{c.nomeCompleto}</div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{c.contato} • {c.orgaoOrigem}</div>
+                        <div className="font-black text-slate-900 dark:text-white">{c.nome_completo}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{c.contato} • {c.orgao_origem}</div>
                       </td>
                       <td className="px-8 py-5 text-center">
                         <div className="flex flex-wrap justify-center gap-2">
                           {c.motorista && <UserCheck size={16} className="text-emerald-500" />}
-                          {c.modeloVeiculo && <span className="text-[10px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full uppercase tracking-tighter">{c.modeloVeiculo}</span>}
+                          {c.modelo_veiculo && <span className="text-[10px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full uppercase tracking-tighter">{c.modelo_veiculo}</span>}
                         </div>
                       </td>
                       <td className="px-8 py-5 text-right">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditCivil(c); }} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all"><Edit2 size={18} /></button>
-                          <button onClick={(e) => removeCivil(e, c.idCivil)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"><Trash2 size={18} /></button>
+                          <button onClick={(e) => removeCivil(e, c.id_civil)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"><Trash2 size={18} /></button>
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                     filteredAtestados.map((at) => {
-                        const m = data.militares.find(mil => mil.matricula === at.matricula);
-                        const isActive = !!getMilitarActiveAtestado(at.matricula, [at]);
-                        const inicioDate = parseLocalDate(at.dataInicio);
+                        const m = militares.find(mil => mil.matricula === at.matricula);
+                        
+                        // Verificar se este atestado específico está ativo
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const inicioDate = parseLocalDate(at.data_inicio);
+                        inicioDate.setHours(0, 0, 0, 0);
                         const fim = new Date(inicioDate);
                         fim.setDate(inicioDate.getDate() + at.dias - 1);
+                        fim.setHours(23, 59, 59, 999);
+                        const isActive = today >= inicioDate && today <= fim;
                         
                         return (
                             <tr key={at.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                                 <td className="px-8 py-5">
-                                    <div className="font-black text-slate-900 dark:text-white uppercase leading-tight">{m?.postoGrad} {m?.nomeGuerra}</div>
+                                    <div className="font-black text-slate-900 dark:text-white uppercase leading-tight">{m?.posto_grad} {m?.nome_guerra}</div>
                                     <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">{inicioDate.toLocaleDateString()} — {fim.toLocaleDateString()} ({at.dias} dias)</div>
                                     <div className="text-[9px] text-red-500 font-bold uppercase mt-1 italic">{at.motivo}</div>
                                 </td>
@@ -527,6 +609,8 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                 )}
               </tbody>
             </table>
+            </>
+          )}
           </div>
         </div>
       </div>

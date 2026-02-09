@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Turnos</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Test API Turnos</h1>
+    
+    <div class="test-section">
+        <h2>Test Endpoint /api/turnos-com-sp</h2>
+        <button onclick="testTurnoSP()">Criar Turno com SP</button>
+        <div id="sp-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Endpoint /api/turnos</h2>
+        <button onclick="testTurnoNormal()">Criar Turno Normal</button>
+        <div id="normal-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Procedure Direto</h2>
+        <button onclick="testProcedureDireto()">Testar Procedure SQL</button>
+        <div id="procedure-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        async function testTurnoSP() {
+            const resultDiv = document.getElementById('sp-result');
+            resultDiv.innerHTML = '<p>Testando /api/turnos-com-sp...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/turnos-com-sp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: '2026-03-01',
+                        periodo: 'Manhã'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Sucesso!</h3>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Erro</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testTurnoNormal() {
+            const resultDiv = document.getElementById('normal-result');
+            resultDiv.innerHTML = '<p>Testando /api/turnos...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/turnos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: '2026-03-02',
+                        periodo: 'Tarde'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Sucesso!</h3>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Erro</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testProcedureDireto() {
+            const resultDiv = document.getElementById('procedure-result');
+            resultDiv.innerHTML = '<p>Testando procedure direto no MySQL...</p>';
+            
+            try {
+                // Simulação do teste da procedure
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Teste Manual SQL</h3>
+                        <p>Execute no MySQL:</p>
+                        <pre>CALL sp_criar_turno_definitivo('2026-03-03', 'Noite');</pre>
+                        <p>Se funcionar, a procedure está OK!</p>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Erro</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

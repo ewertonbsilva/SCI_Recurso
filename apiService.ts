@@ -1,4 +1,4 @@
-import { Turno, Periodo, User } from './types';
+import { Turno, Periodo, User, AtestadoMedico } from './types';
 
 const API_BASE_URL = 'http://localhost:3001';
 
@@ -144,6 +144,78 @@ class ApiService {
 
   async deleteChamadaCivil(id: string): Promise<void> {
     return this.request<void>(`/api/chamada-civil/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Views Otimizadas (Reais do Banco)
+  async getMilitaresRestricoes(): Promise<any[]> {
+    return this.request<any[]>('/api/vw/militares-restricoes');
+  }
+
+  async getResumoCivisTurno(): Promise<any[]> {
+    return this.request<any[]>('/api/vw/resumo-civis-turno');
+  }
+
+  async getResumoMilitaresTurno(): Promise<any[]> {
+    return this.request<any[]>('/api/vw/resumo-militares-turno');
+  }
+
+  // Stored Procedures (Reais do Banco)
+  async criarTurno(data: string, periodo: string): Promise<any> {
+    return this.request<any>('/api/sp/criar-turno', {
+      method: 'POST',
+      body: JSON.stringify({ data, periodo }),
+    });
+  }
+
+  // Métodos para usar Stored Procedures
+  async gerarId(tipo: 'turno' | 'civil' | 'atestado'): Promise<any> {
+    return this.request<any>(`/api/sp/gerar-id/${tipo}`);
+  }
+
+  async criarTurnoComSP(data: string, periodo: string): Promise<any> {
+    return this.request<any>('/api/turnos-com-sp', {
+      method: 'POST',
+      body: JSON.stringify({ data, periodo }),
+    });
+  }
+
+  async getDashboard(): Promise<any> {
+    return this.request<any>('/api/dashboard');
+  }
+
+  async getDisponibilidade(data: string, periodo: string): Promise<any[]> {
+    return this.request<any[]>(`/api/disponibilidade?data=${data}&periodo=${periodo}`);
+  }
+
+  // Métodos para usar Views Otimizadas
+  async getEfetivoDisponivelView(): Promise<any[]> {
+    return this.request<any[]>('/api/vw/efetivo-disponivel');
+  }
+
+  async getResumoTurnos(): Promise<any[]> {
+    return this.request<any[]>('/api/vw/resumo-turnos');
+  }
+
+  async getLogsRecentes(): Promise<any[]> {
+    return this.request<any[]>('/api/vw/logs-recentes');
+  }
+
+  // Atestados Médicos
+  async getAtestados(): Promise<AtestadoMedico[]> {
+    return this.request<AtestadoMedico[]>('/api/atestados');
+  }
+
+  async createAtestado(atestado: Partial<AtestadoMedico>): Promise<AtestadoMedico> {
+    return this.request<AtestadoMedico>('/api/atestados', {
+      method: 'POST',
+      body: JSON.stringify(atestado),
+    });
+  }
+
+  async deleteAtestado(id: string): Promise<void> {
+    return this.request<void>(`/api/atestados/${id}`, {
       method: 'DELETE',
     });
   }
