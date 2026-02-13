@@ -31,16 +31,22 @@ export enum FORCAS {
 }
 
 export enum POSTOS_GRAD {
-  SOLDADO = 'Soldado',
-  CABO = 'Cabo',
-  SARGENTO = 'Sargento',
-  SUBTENENTE = 'Subtenente',
-  ASPIRANTE = 'Aspirante',
-  TENENTE = 'Tenente',
-  CAPITAO = 'Capitão',
-  MAJOR = 'Major',
-  TENENTE_CORONEL = 'Tenente-Coronel',
-  CORONEL = 'Coronel'
+  AL_SD = 'AL SD',
+  SD = 'SD',
+  AL_CB = 'AL CB',
+  CB = 'CB',
+  AL_SGT = 'AL SGT',
+  SARGENTO_3 = '3º SGT',
+  SARGENTO_2 = '2º SGT',
+  SARGENTO_1 = '1º SGT',
+  AL_OF = 'AL OF',
+  ST = 'ST',
+  TENENTE_2 = '2º TEN',
+  TENENTE_1 = '1º TEN',
+  CAP = 'CAP',
+  MAJ = 'MAJ',
+  TC = 'TC',
+  CEL = 'CEL'
 }
 
 export enum ORGAOS_ORIGEM {
@@ -49,6 +55,26 @@ export enum ORGAOS_ORIGEM {
   VOLUNTARIO = 'Voluntário',
   EMPRESA_PRIVADA = 'Empresa Privada',
   OUTROS = 'Outros'
+}
+
+export enum UBMS {
+  QCG = 'QCG',
+  DATOP = 'DATOP',
+  DEIP = 'DEIP',
+  DS = 'DS',
+  CICC_COBOM = 'CICC - COBOM',
+  CIA1_CIAER = '1ª CIA CIAER',
+  COL_MIL_CMDP = 'CMDP II RBO',
+  BEPCIF_1 = '1º BEPCIF',
+  BEPCIF_2 = '2º BEPCIF',
+  BEPCIF_3 = '3º BEPCIF',
+  BEPCIF_4 = '4º BEPCIF',
+  BEPCIF_5 = '5º BEPCIF',
+  BEPCIF_6 = '6º BEPCIF',
+  BEPCIF_7 = '7º BEPCIF',
+  BEPCIF_8 = '8º BEPCIF',
+  BEPCIF_9 = '9º BEPCIF',
+  A_DISPOSICAO = 'A DISPOSIÇÃO'
 }
 
 export enum ALFABETO_FONETICO {
@@ -88,27 +114,55 @@ export interface User {
   role: UserRole;
 }
 
+export interface Forca {
+  id_forca: number;
+  nome_forca: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OrgaoOrigem {
+  id_orgao_origem: number;
+  nome_orgao: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CadastroCivil {
   id_civil: string;
   nome_completo: string;
   contato: string;
-  orgao_origem: string;
+  id_orgao_origem: number;
+  nome_orgao?: string;  // Vem do JOIN com orgaos_origem
   motorista: boolean;
   modelo_veiculo?: string;
   placa_veiculo?: string;
 }
 
+export interface PostoGrad {
+  id_posto_grad: number;
+  nome_posto_grad: string;
+  hierarquia: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CadastroMilitar {
   matricula: string;
   nome_completo: string;
-  posto_grad: string;
+  id_posto_grad: number;
+  nome_posto_grad?: string;  // Vem do JOIN com posto_grad
+  hierarquia?: number;        // Vem do JOIN com posto_grad
   nome_guerra: string;
   rg: string;
-  forca: string;
+  id_forca: number;
+  nome_forca?: string;      // Vem do JOIN com forcas
   cpoe: boolean;
   mergulhador: boolean;
   restricao_medica: boolean;
   desc_rest_med?: string;
+  id_ubm?: string;
+  nome_ubm?: string;        // Vem do JOIN com ubms
 }
 
 export interface Turno {
@@ -145,8 +199,22 @@ export interface LogOperacional {
   id_turno: string;
   timestamp: number;
   mensagem: string;
-  categoria: string;
+  categoria: 'Informativo' | 'Equipe' | 'Urgente';
   usuario: string;
+}
+
+export interface LogAuditoria {
+  id: string;
+  timestamp: number;
+  usuario: string;
+  acao: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
+  modulo: string;
+  entidade: string;
+  id_entidade: string;
+  dados_antigos?: any;
+  dados_novos?: any;
+  ip_address?: string;
+  user_agent?: string;
 }
 
 export interface AtestadoMedico {

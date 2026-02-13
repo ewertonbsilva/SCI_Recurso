@@ -1,18 +1,18 @@
 
 import React, { useState } from 'react';
 import { Send, FileText, Clock, AlertTriangle, Info, User, Trash2, Users } from 'lucide-react';
-import { loadData, saveData, getCurrentUser } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import { LogOperacional } from '../types';
 import { apiService } from '../apiService';
+import AuditoriaService from '../services/AuditoriaService';
 
 const OperationalLog: React.FC = () => {
-  const [data, setData] = useState(loadData());
   const [logs, setLogs] = useState<LogOperacional[]>([]);
   const [turnos, setTurnos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [categoria, setCategoria] = useState<LogOperacional['categoria']>('Informativo');
-  const user = getCurrentUser();
+  const { user } = useAuth();
 
   React.useEffect(() => {
     loadDadosFromAPI();
@@ -35,7 +35,7 @@ const OperationalLog: React.FC = () => {
     }
   };
 
-  const currentTurno = [...turnos].sort((a,b) => b.data.localeCompare(a.data))[0];
+  const currentTurno = [...turnos].sort((a, b) => b.data.localeCompare(a.data))[0];
 
   const handleAddLog = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +43,7 @@ const OperationalLog: React.FC = () => {
 
     const newLog: LogOperacional = {
       id: crypto.randomUUID(),
-      id_turno: currentTurno.idTurno,
+      id_turno: currentTurno.id_turno,
       timestamp: Date.now(),
       mensagem: msg.trim(),
       categoria,
@@ -55,6 +55,9 @@ const OperationalLog: React.FC = () => {
       setLogs([newLog, ...logs]);
       setMsg('');
       console.log('Log adicionado com sucesso:', newLog);
+      
+      // Registrar na auditoria
+      AuditoriaService.registrarCreate('Diário', 'LogOperacional', newLog, user.nome);
     } catch (error) {
       console.error('Erro ao adicionar log:', error);
     }
@@ -62,30 +65,37 @@ const OperationalLog: React.FC = () => {
 
   const removeLog = async (id: string) => {
     try {
+      const logRemovido = logs.find(l => l.id === id);
       await apiService.deleteLog(id);
       setLogs(logs.filter(l => l.id !== id));
       console.log('Log removido com sucesso:', id);
+      
+      // Registrar na auditoria
+      if (logRemovido) {
+        AuditoriaService.registrarDelete('Diário', 'LogOperacional', logRemovido, user?.nome);
+      }
     } catch (error) {
       console.error('Erro ao remover log:', error);
     }
   };
 
-  const currentLogs = logs.filter(l => l.id_turno === currentTurno?.idTurno);
+  const currentLogs = logs.filter(l => l.id_turno === currentTurno?.id_turno);
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2 uppercase tracking-tighter">
-          <FileText className="text-blue-600" /> Diário de Operações
-        </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Registro cronológico de eventos e ocorrências do turno atual.</p>
+      <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group">
+        <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20 group-hover:opacity-100 transition-opacity"></div>
+        <div>
+          <h3 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">Gestão de <span className="text-primary">Diário de Operações</span></h3>
+          <p className="text-sm text-slate-400 font-medium mt-1">Registro cronológico de eventos e ocorrências do turno atual.</p>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800">
         <form onSubmit={handleAddLog} className="space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
-            <select 
-              value={categoria} 
+            <select
+              value={categoria}
               onChange={e => setCategoria(e.target.value as any)}
               className="bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -94,7 +104,7 @@ const OperationalLog: React.FC = () => {
               <option value="Urgente">🔴 Ocorrência Urgente</option>
             </select>
             <div className="flex-1 relative">
-              <input 
+              <input
                 value={msg}
                 onChange={e => setMsg(e.target.value)}
                 placeholder="Descreva o evento..."
@@ -111,11 +121,10 @@ const OperationalLog: React.FC = () => {
       <div className="space-y-4">
         {currentLogs.map(log => (
           <div key={log.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex gap-4 animate-in slide-in-from-left-4 duration-300">
-            <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-              log.categoria === 'Urgente' ? 'bg-red-100 text-red-600 dark:bg-red-950' : 
-              log.categoria === 'Equipe' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950' : 
-              'bg-emerald-100 text-emerald-600 dark:bg-emerald-950'
-            }`}>
+            <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${log.categoria === 'Urgente' ? 'bg-red-100 text-red-600 dark:bg-red-950' :
+              log.categoria === 'Equipe' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950' :
+                'bg-emerald-100 text-emerald-600 dark:bg-emerald-950'
+              }`}>
               {log.categoria === 'Urgente' ? <AlertTriangle size={20} /> : log.categoria === 'Equipe' ? <Users size={20} /> : <Info size={20} />}
             </div>
             <div className="flex-1">

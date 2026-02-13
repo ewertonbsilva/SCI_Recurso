@@ -3,22 +3,34 @@ import { Turno, Periodo, User, AtestadoMedico } from './types';
 const API_BASE_URL = 'http://localhost:3001';
 
 class ApiService {
+  private getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('auth_token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  }
+
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     console.log('Fazendo requisição para:', url);
-    
+
     try {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
           ...options?.headers,
         },
         ...options,
       });
 
       console.log('Resposta status:', response.status);
-      
+
       if (!response.ok) {
+        // Se for erro de autenticação, limpar dados e redirecionar
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+          window.location.href = '/login';
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -256,10 +268,176 @@ class ApiService {
     });
   }
 
+  async updateUser(id: string, user: Partial<User>): Promise<any> {
+    return this.request<any>(`/api/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(user),
+    });
+  }
+
+  // Redefinir senha de usuário
+  async resetUserPassword(id: string, newPassword: string): Promise<any> {
+    return this.request<any>(`/api/users/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ newPassword }),
+    });
+  }
+
+  // Postos e Graduações
+  async getPostosGrad(): Promise<any[]> {
+    return this.request<any[]>('/api/postos-grad');
+  }
+
+  async createPostoGrad(posto: Partial<any>): Promise<any> {
+    return this.request<any>('/api/postos-grad', {
+      method: 'POST',
+      body: JSON.stringify(posto),
+    });
+  }
+
+  async updatePostoGrad(id: number, posto: Partial<any>): Promise<any> {
+    return this.request<any>(`/api/postos-grad/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(posto),
+    });
+  }
+
+  async deletePostoGrad(id: number): Promise<void> {
+    return this.request<void>(`/api/postos-grad/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Forças
+  async getForcas(): Promise<any[]> {
+    return this.request<any[]>('/api/forcas');
+  }
+
+  async createForca(forca: Partial<any>): Promise<any> {
+    return this.request<any>('/api/forcas', {
+      method: 'POST',
+      body: JSON.stringify(forca),
+    });
+  }
+
+  async updateForca(id: number, forca: Partial<any>): Promise<any> {
+    return this.request<any>(`/api/forcas/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(forca),
+    });
+  }
+
+  async deleteForca(id: number): Promise<void> {
+    return this.request<void>(`/api/forcas/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Órgãos de Origem
+  async getOrgaosOrigem(): Promise<any[]> {
+    return this.request<any[]>('/api/orgaos-origem');
+  }
+
+  async createOrgaoOrigem(orgao: Partial<any>): Promise<any> {
+    return this.request<any>('/api/orgaos-origem', {
+      method: 'POST',
+      body: JSON.stringify(orgao),
+    });
+  }
+
+  async updateOrgaoOrigem(id: number, orgao: Partial<any>): Promise<any> {
+    return this.request<any>(`/api/orgaos-origem/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(orgao),
+    });
+  }
+
+  async deleteOrgaoOrigem(id: number): Promise<void> {
+    return this.request<void>(`/api/orgaos-origem/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // UBMs
+  async getUBMs(): Promise<any[]> {
+    return this.request<any[]>('/api/ubms');
+  }
+
+  async createUBM(ubm: { id_ubm: string, nome_ubm: string }): Promise<any> {
+    return this.request<any>('/api/ubms', {
+      method: 'POST',
+      body: JSON.stringify(ubm),
+    });
+  }
+
+  async updateUBM(id: string | number, ubm: Partial<any>): Promise<any> {
+    return this.request<any>(`/api/ubms/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(ubm),
+    });
+  }
+
+  async deleteUBM(id: number): Promise<void> {
+    return this.request<void>(`/api/ubms/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.request<{ status: string; timestamp: string }>('/api/health');
   }
+}
+
+export interface PostoGrad {
+  id_posto_grad: number;
+  nome_posto_grad: string;
+  hierarquia: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Forca {
+  id_forca: number;
+  nome_forca: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OrgaoOrigem {
+  id_orgao_origem: number;
+  nome_orgao: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CadastroCivil {
+  id_civil: string;
+  nome_completo: string;
+  contato: string;
+  id_orgao_origem: number;
+  nome_orgao?: string;  // Vem do JOIN com orgaos_origem
+  motorista: boolean;
+  modelo_veiculo?: string;
+  placa_veiculo?: string;
+}
+
+export interface CadastroMilitar {
+  matricula: string;
+  nome_completo: string;
+  id_posto_grad: number;
+  nome_posto_grad?: string;  // Vem do JOIN com posto_grad
+  hierarquia?: number;        // Vem do JOIN com posto_grad
+  nome_guerra: string;
+  rg: string;
+  id_forca: number;
+  nome_forca?: string;      // Vem do JOIN com forcas
+  cpoe: boolean;
+  mergulhador: boolean;
+  restricao_medica: boolean;
+  desc_rest_med?: string;
+  id_ubm?: string;
+  nome_ubm?: string;        // Vem do JOIN com ubms
 }
 
 export const apiService = new ApiService();

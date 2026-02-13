@@ -1,30 +1,44 @@
-
 import { GoogleGenAI } from "@google/genai";
 
-export const analyzeResources = async (data: any) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `
-    Analise os seguintes dados de recursos humanos de uma operação de SCI (Sistema de Controle de Incidentes):
-    Efetivo Militar: ${JSON.stringify(data.militares)}
-    Efetivo Civil: ${JSON.stringify(data.civis)}
-    Chamadas do Turno Atual: ${JSON.stringify(data.chamadas)}
+// Tenta pegar a chave de API do ambiente Vite
+const genAI = new GoogleGenAI({
+    apiKey: import.meta.env.VITE_GEMINI_API_KEY || ""
+});
 
-    Forneça um breve resumo situacional em português, destacando:
-    1. Quantidade total de pessoal.
-    2. Alerta sobre restrições médicas.
-    3. Capacidade de transporte (motoristas civis).
-    4. Uma recomendação operacional rápida.
-    Limite-se a 3 parágrafos curtos.
-  `;
+export const analyzeResources = async (data: {
+    militares: any[];
+    civis: any[];
+    chamadas: {
+        civil: any[];
+        militar: any[];
+    };
+}) => {
+    try {
+        const prompt = `
+      Como um especialista em gestão estratégica de efetivo militar e defesa civil, analise os seguintes dados de prontidão para hoje:
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    return response.text;
-  } catch (error) {
-    console.error("Erro na análise AI:", error);
-    return "Não foi possível gerar a análise no momento.";
-  }
+      DADOS DE HOJE:
+      - Total de Militares Cadastrados: ${data.militares.length}
+      - Total de Recursos Civis (VTRs/Motoristas): ${data.civis.length}
+      - Militares na Escala (Chamada): ${data.chamadas.militar.length}
+      - Equipes Civis Empenhadas: ${data.chamadas.civil.length}
+
+      POR FAVOR, FORNEÇA:
+      1. Uma breve análise da capacidade de resposta atual.
+      2. Identificação de possíveis gargalos ou riscos (ex: baixo efetivo em relação aos recursos).
+      3. Uma recomendação estratégica rápida.
+
+      Responda de forma profissional, executiva e em Português do Brasil. Seja conciso e use parágrafos curtos.
+    `;
+
+        const response = await genAI.models.generateContent({
+            model: "gemini-1.5-flash",
+            contents: prompt
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Erro ao analisar recursos com Gemini:", error);
+        return "Não foi possível gerar a análise estratégica no momento. Verifique sua chave de API e conexão.";
+    }
 };

@@ -1,16 +1,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Truck, 
-  Plus, 
-  Trash2, 
-  Check, 
-  MapPin, 
-  Activity, 
-  Clock, 
-  User, 
-  Calendar, 
-  X, 
+import {
+  Truck,
+  Plus,
+  Trash2,
+  Check,
+  MapPin,
+  Activity,
+  Clock,
+  User,
+  Calendar,
+  X,
   Search,
   ChevronRight,
   ArrowLeft,
@@ -18,7 +18,6 @@ import {
   UserPlus,
   Type
 } from 'lucide-react';
-import { loadData, saveData } from '../store';
 import { ChamadaCivil, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
@@ -28,9 +27,9 @@ interface GestaoEquipesProps {
 }
 
 const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
-  const [data, setData] = useState(loadData());
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [chamadaCivil, setChamadaCivil] = useState<ChamadaCivil[]>([]);
+  const [chamadaMilitar, setChamadaMilitar] = useState<any[]>([]);
   const [militares, setMilitares] = useState<any[]>([]);
   const [civis, setCivis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,17 +59,18 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   const loadDadosFromAPI = async () => {
     try {
       setLoading(true);
-      const [turnosData, chamadaCivilData, militaresData, civisData] = await Promise.all([
+      const [turnosData, militaresData, civisData] = await Promise.all([
         apiService.getTurnos(),
-        apiService.getCivis(), // Temporário, vamos precisar de endpoint específico
         apiService.getMilitares(),
         apiService.getCivis()
       ]);
       setTurnos(turnosData);
-      setChamadaCivil(chamadaCivilData);
       setMilitares(militaresData);
       setCivis(civisData);
-      console.log('Dados de gestão carregados:', { turnos: turnosData, chamadaCivil: chamadaCivilData });
+
+      if (selectedTurnoId) {
+        loadTurnoSpecificData(selectedTurnoId);
+      }
     } catch (error) {
       console.error('Erro ao carregar dados de gestão:', error);
       onNotify?.('Erro ao carregar dados do banco de dados', 'error');
@@ -79,51 +79,79 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     }
   };
 
-  const turno = data.turnos.find(t => t.idTurno === selectedTurnoId);
-  const equipesNoTurno = data.chamadaCivil.filter(cc => cc.idTurno === selectedTurnoId);
-  
-  const militaresDisponiveis = data.chamadaMilitar
-    .filter(cm => cm.idTurno === selectedTurnoId && cm.presenca && cm.funcao === FuncaoMilitar.COMBATENTE)
-    .filter(cm => !data.chamadaCivil.some(cc => cc.idTurno === selectedTurnoId && cc.matricula_chefe === cm.matricula));
-
-  const updateEquipe = (id: string, updates: Partial<ChamadaCivil>) => {
-    if (updates.status) updates.last_status_update = Date.now();
-    const newData = { ...data, chamadaCivil: data.chamadaCivil.map(cc => cc.idChamadaCivil === id ? { ...cc, ...updates } : cc) };
-    setData(newData);
-    saveData(newData);
+  const loadTurnoSpecificData = async (idTurno: string) => {
+    try {
+      const [ccData, cmData] = await Promise.all([
+        apiService.getChamadaCivil(idTurno),
+        apiService.getChamadaMilitar(idTurno)
+      ]);
+      setChamadaCivil(ccData);
+      setChamadaMilitar(cmData);
+    } catch (error) {
+      console.error('Erro ao carregar chamadas:', error);
+    }
   };
 
-  const removeEquipe = (id: string) => {
-    // Removido confirm() bloqueado
-    const newData = { ...data, chamadaCivil: data.chamadaCivil.filter(cc => cc.idChamadaCivil !== id) };
-    setData(newData);
-    saveData(newData);
-    onNotify?.("Equipe removida.", "warning");
+  useEffect(() => {
+    if (selectedTurnoId) {
+      loadTurnoSpecificData(selectedTurnoId);
+    }
+  }, [selectedTurnoId]);
+
+  const turno = turnos.find(t => t.id_turno === selectedTurnoId);
+  const equipesNoTurno = chamadaCivil;
+
+  const militaresDisponiveis = chamadaMilitar
+    .filter(cm => cm.presenca && cm.funcao === FuncaoMilitar.COMBATENTE)
+    .filter(cm => !chamadaCivil.some(cc => cc.matricula_chefe === cm.matricula));
+
+  const updateEquipe = async (id: string, updates: Partial<ChamadaCivil>) => {
+    try {
+      if (updates.status) updates.last_status_update = Date.now();
+      await apiService.updateChamadaCivil(id, updates);
+      setChamadaCivil(prev => prev.map(cc => cc.id_chamada_civil === id ? { ...cc, ...updates } : cc));
+    } catch (error) {
+      onNotify?.("Erro ao atualizar equipe.", "error");
+    }
+  };
+
+  const removeEquipe = async (id: string) => {
+    try {
+      await apiService.deleteChamadaCivil(id);
+      setChamadaCivil(prev => prev.filter(cc => cc.id_chamada_civil !== id));
+      onNotify?.("Equipe removida.", "warning");
+    } catch (error) {
+      onNotify?.("Erro ao remover equipe.", "error");
+    }
   };
 
   const getNextPhoneticName = () => {
-    const usedNames = data.chamadaCivil.map(c => c.nome_equipe);
+    const usedNames = chamadaCivil.map(c => c.nome_equipe);
     const availableNames = Object.values(ALFABETO_FONETICO).filter(name => !usedNames.includes(name));
     return availableNames[0] || Object.values(ALFABETO_FONETICO)[0];
   };
 
-  const handleAddVtr = (idCivil: string) => {
+  const handleAddVtr = async (id_civil: string) => {
     const nextName = getNextPhoneticName();
     const newEntry: ChamadaCivil = {
-      id_chamada_civil: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      id_chamada_civil: crypto.randomUUID(),
       id_turno: selectedTurnoId,
-      id_civil: idCivil,
+      id_civil: id_civil,
       nome_equipe: nextName,
       quant_civil: 1,
       status: StatusEquipe.LIVRE,
       last_status_update: Date.now(),
       bairro: ''
     };
-    const newData = { ...data, chamadaCivil: [...data.chamadaCivil, newEntry] };
-    setData(newData);
-    saveData(newData);
-    setIsVtrMenuOpen(false);
-    onNotify?.(`Equipe ${nextName} adicionada!`, "success");
+
+    try {
+      await apiService.createChamadaCivil(newEntry);
+      setChamadaCivil(prev => [...prev, newEntry]);
+      setIsVtrMenuOpen(false);
+      onNotify?.(`Equipe ${nextName} adicionada!`, "success");
+    } catch (error) {
+      onNotify?.("Erro ao adicionar equipe.", "error");
+    }
   };
 
   if (!selectedTurnoId) {
@@ -137,16 +165,16 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data.turnos.sort((a,b) => b.data.localeCompare(a.data)).map((t) => {
-            const count = data.chamadaCivil.filter(cc => cc.idTurno === t.idTurno).length;
+          {turnos.sort((a, b) => b.data.localeCompare(a.data)).map((t) => {
+            const count = 0; // Temporário, ou buscar do backend se necessário
             return (
-              <button 
-                key={t.idTurno}
-                onClick={() => setSelectedTurnoId(t.idTurno)}
+              <button
+                key={t.id_turno}
+                onClick={() => setSelectedTurnoId(t.id_turno)}
                 className="group relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:scale-[1.03] transition-all text-left overflow-hidden"
               >
                 <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20 group-hover:opacity-100 transition-opacity"></div>
-                
+
                 <div className="flex justify-between items-start mb-6">
                   <div className={`p-4 rounded-2xl ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}>
                     <Clock size={24} />
@@ -168,8 +196,8 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
               </button>
             );
           })}
-          
-          {data.turnos.length === 0 && (
+
+          {turnos.length === 0 && (
             <div className="col-span-full py-24 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem]">
               <Calendar className="mx-auto text-slate-200 mb-4" size={48} />
               <p className="text-slate-400 font-black uppercase tracking-widest">Nenhum turno cadastrado.</p>
@@ -185,7 +213,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     <div className="space-y-8 page-transition">
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-6">
-          <button 
+          <button
             onClick={() => setSelectedTurnoId('')}
             className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-primary transition-all"
             title="Mudar Turno"
@@ -206,7 +234,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
         </div>
 
         <div className="relative w-full lg:w-auto">
-          <button 
+          <button
             onClick={() => setIsVtrMenuOpen(!isVtrMenuOpen)}
             className="w-full bg-slate-900 dark:bg-primary text-white px-8 py-4 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.15em] hover:scale-105 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2"
           >
@@ -217,28 +245,28 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
             <div ref={modalRef} className="absolute right-0 mt-4 w-80 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-2xl rounded-[2rem] z-[100] p-4 animate-in fade-in zoom-in duration-200">
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl mb-3">
                 <Search size={14} className="text-slate-400" />
-                <input 
-                  placeholder="Filtrar veículos..." 
+                <input
+                  placeholder="Filtrar veículos..."
                   className="bg-transparent border-none text-[11px] font-bold outline-none w-full dark:text-white"
                   value={vtrSearch}
                   onChange={e => setVtrSearch(e.target.value)}
                 />
               </div>
               <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar">
-                {data.civis
-                  .filter(c => c.motorista && !equipesNoTurno.some(cc => cc.idCivil === c.idCivil))
-                  .filter(c => c.modeloVeiculo.toLowerCase().includes(vtrSearch.toLowerCase()) || c.placaVeiculo.toLowerCase().includes(vtrSearch.toLowerCase()))
+                {civis
+                  .filter(c => c.motorista && !equipesNoTurno.some(cc => cc.id_civil === c.id_civil))
+                  .filter(c => (c.modelo_veiculo || '').toLowerCase().includes(vtrSearch.toLowerCase()) || (c.placa_veiculo || '').toLowerCase().includes(vtrSearch.toLowerCase()))
                   .map(c => (
-                    <button 
-                      key={c.idCivil}
-                      onClick={() => handleAddVtr(c.idCivil)}
+                    <button
+                      key={c.id_civil}
+                      onClick={() => handleAddVtr(c.id_civil)}
                       className="w-full p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-all group"
                     >
-                      <p className="font-black text-xs text-slate-800 dark:text-white uppercase truncate">{c.modeloVeiculo || 'Sem Modelo'}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{c.placaVeiculo} • {c.nomeCompleto}</p>
+                      <p className="font-black text-xs text-slate-800 dark:text-white uppercase truncate">{c.modelo_veiculo || 'Sem Modelo'}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{c.placa_veiculo} • {c.nome_completo}</p>
                     </button>
                   ))}
-                {data.civis.filter(c => c.motorista && !equipesNoTurno.some(cc => cc.idCivil === c.idCivil)).length === 0 && (
+                {civis.filter(c => c.motorista && !equipesNoTurno.some(cc => cc.id_civil === c.id_civil)).length === 0 && (
                   <p className="text-center py-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">Nenhuma VTR disponível</p>
                 )}
               </div>
@@ -249,9 +277,9 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {equipesNoTurno.map(cc => {
-          const civil = data.civis.find(c => c.idCivil === cc.idCivil);
-          const chefe = data.militares.find(m => m.matricula === cc.matricula_chefe);
-          
+          const civil = civis.find(c => c.id_civil === cc.id_civil);
+          const chefe = militares.find(m => m.matricula === cc.matricula_chefe);
+
           const statusColors = {
             [StatusEquipe.LIVRE]: 'bg-emerald-500',
             [StatusEquipe.EMPENHADA]: 'bg-amber-500',
@@ -259,27 +287,27 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
           };
 
           return (
-            <div key={cc.idChamadaCivil} className="group bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all flex flex-col overflow-hidden relative">
+            <div key={cc.id_chamada_civil} className="group bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all flex flex-col overflow-hidden relative">
               <div className={`absolute top-0 left-0 w-2 h-full ${statusColors[cc.status]}`}></div>
-              
+
               <div className="p-6 pb-0 flex justify-between items-start ml-2">
                 <div className="flex items-center gap-3 flex-1 overflow-hidden">
                   <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 group-hover:text-primary transition-colors shrink-0">
                     <Type size={20} />
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <input 
+                    <input
                       value={cc.nome_equipe || ''}
-                      onChange={e => updateEquipe(cc.idChamadaCivil, { nome_equipe: e.target.value })}
+                      onChange={e => updateEquipe(cc.id_chamada_civil, { nome_equipe: e.target.value })}
                       placeholder="Nome da Equipe"
                       className="w-full bg-transparent border-none p-0 font-black text-lg text-slate-900 dark:text-white uppercase tracking-tighter leading-none outline-none focus:ring-0 placeholder:text-slate-300"
                     />
                     <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest truncate">
-                      {civil?.modeloVeiculo} • {civil?.placaVeiculo}
+                      {civil?.modelo_veiculo} • {civil?.placa_veiculo}
                     </p>
                   </div>
                 </div>
-                <button onClick={() => removeEquipe(cc.idChamadaCivil)} className="p-2 text-slate-200 hover:text-red-500 transition-colors shrink-0">
+                <button onClick={() => removeEquipe(cc.id_chamada_civil)} className="p-2 text-slate-200 hover:text-red-500 transition-colors shrink-0">
                   <Trash2 size={18} />
                 </button>
               </div>
@@ -291,23 +319,23 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                     <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl group/slot">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white text-xs font-black shadow-lg">
-                          {chefe.nomeGuerra.substring(0, 2).toUpperCase()}
+                          {chefe.nome_guerra.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-black text-xs text-slate-900 dark:text-white uppercase">{chefe.postoGrad} {chefe.nomeGuerra}</p>
+                          <p className="font-black text-xs text-slate-900 dark:text-white uppercase">{chefe.nome_posto_grad} {chefe.nome_guerra}</p>
                           <p className="text-[9px] text-primary font-bold">{chefe.matricula}</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => updateEquipe(cc.idChamadaCivil, { matricula_chefe: undefined })}
+                      <button
+                        onClick={() => updateEquipe(cc.id_chamada_civil, { matricula_chefe: undefined })}
                         className="p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover/slot:opacity-100"
                       >
                         <X size={16} />
                       </button>
                     </div>
                   ) : (
-                    <button 
-                      onClick={() => setIsMilitarModalOpen({ open: true, idEquipe: cc.idChamadaCivil })}
+                    <button
+                      onClick={() => setIsMilitarModalOpen({ open: true, idEquipe: cc.id_chamada_civil })}
                       className="w-full p-4 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/30 transition-all font-bold text-xs uppercase tracking-widest"
                     >
                       <UserPlus size={16} /> Atribuir Chefe
@@ -320,15 +348,15 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
                       <User size={10} /> Motorista
                     </p>
-                    <p className="font-bold text-[10px] text-slate-700 dark:text-slate-300 truncate">{civil?.nomeCompleto || 'N/A'}</p>
+                    <p className="font-bold text-[10px] text-slate-700 dark:text-slate-300 truncate">{civil?.nome_completo || 'N/A'}</p>
                   </div>
                   <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
                       <MapPin size={10} /> Setor
                     </p>
-                    <input 
+                    <input
                       value={cc.bairro || ''}
-                      onChange={e => updateEquipe(cc.idChamadaCivil, { bairro: e.target.value })}
+                      onChange={e => updateEquipe(cc.id_chamada_civil, { bairro: e.target.value })}
                       placeholder="Não definido"
                       className="bg-transparent border-none p-0 w-full font-black text-[10px] text-primary outline-none placeholder:text-slate-300"
                     />
@@ -343,13 +371,13 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                     { id: StatusEquipe.EMPENHADA, icon: <Activity size={16} />, color: 'bg-amber-500', hover: 'hover:text-amber-500', label: 'Empenhada' },
                     { id: StatusEquipe.PAUSA_OPERACIONAL, icon: <Clock size={16} />, color: 'bg-slate-500', hover: 'hover:text-slate-500', label: 'Pausa' }
                   ].map(st => (
-                    <button 
+                    <button
                       key={st.id}
-                      onClick={() => updateEquipe(cc.idChamadaCivil, { status: st.id })}
+                      onClick={() => updateEquipe(cc.id_chamada_civil, { status: st.id })}
                       className={`
                         flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl transition-all
-                        ${cc.status === st.id 
-                          ? `${st.color} text-white shadow-lg scale-105 font-black` 
+                        ${cc.status === st.id
+                          ? `${st.color} text-white shadow-lg scale-105 font-black`
                           : `text-slate-400 dark:text-slate-500 ${st.hover}`}
                       `}
                     >
@@ -386,8 +414,8 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
             <div className="p-4 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
                 <Search size={18} className="text-slate-400" />
-                <input 
-                  placeholder="Pesquisar disponível..." 
+                <input
+                  placeholder="Pesquisar disponível..."
                   className="bg-transparent border-none text-sm font-bold outline-none w-full dark:text-white"
                   value={militarSearch}
                   onChange={e => setMilitarSearch(e.target.value)}
@@ -398,13 +426,13 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
             <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
               {militaresDisponiveis
                 .filter(cm => {
-                   const m = data.militares.find(mil => mil.matricula === cm.matricula);
-                   return m?.nomeGuerra.toLowerCase().includes(militarSearch.toLowerCase()) || cm.matricula.includes(militarSearch);
+                  const m = militares.find(mil => mil.matricula === cm.matricula);
+                  return m?.nome_guerra.toLowerCase().includes(militarSearch.toLowerCase()) || cm.matricula.includes(militarSearch);
                 })
                 .map(cm => {
-                  const m = data.militares.find(mil => mil.matricula === cm.matricula);
+                  const m = militares.find(mil => mil.matricula === cm.matricula);
                   return m ? (
-                    <button 
+                    <button
                       key={m.matricula}
                       onClick={() => {
                         if (isMilitarModalOpen.idEquipe) {
@@ -415,10 +443,10 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                       className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-primary hover:shadow-lg transition-all text-left group"
                     >
                       <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-primary font-black text-sm border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-110 transition-transform">
-                        {m.nomeGuerra.substring(0, 2).toUpperCase()}
+                        {m.nome_guerra.substring(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-black text-xs text-slate-900 dark:text-white uppercase leading-tight">{m.postoGrad} {m.nomeGuerra}</p>
+                        <p className="font-black text-xs text-slate-900 dark:text-white uppercase leading-tight">{m.nome_posto_grad} {m.nome_guerra}</p>
                         <p className="text-[10px] text-slate-400 font-bold mt-1">{m.matricula}</p>
                       </div>
                       <ChevronRight className="ml-auto text-slate-200 group-hover:text-primary transition-colors" size={16} />

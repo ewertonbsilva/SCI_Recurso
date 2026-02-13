@@ -1,18 +1,18 @@
 
 import React from 'react';
 import { Users, Shield, Clock, BrainCircuit, Loader2, Sparkles } from 'lucide-react';
-import { loadData } from '../store';
 import { analyzeResources } from '../geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiService } from '../apiService';
 
 const Dashboard: React.FC = () => {
-  const data = loadData();
   const [aiAnalysis, setAiAnalysis] = React.useState<string | null>(null);
   const [loadingAi, setLoadingAi] = React.useState(false);
   const [militares, setMilitares] = React.useState<any[]>([]);
   const [civis, setCivis] = React.useState<any[]>([]);
   const [turnos, setTurnos] = React.useState<any[]>([]);
+  const [chamadaCivil, setChamadaCivil] = React.useState<any[]>([]);
+  const [chamadaMilitar, setChamadaMilitar] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -30,6 +30,17 @@ const Dashboard: React.FC = () => {
       setMilitares(militaresData);
       setCivis(civisData);
       setTurnos(turnosData);
+
+      // Carregar chamadas do turno mais recente
+      const latestTurno = [...turnosData].sort((a, b) => b.data.localeCompare(a.data))[0];
+      if (latestTurno) {
+        const [ccData, cmData] = await Promise.all([
+          apiService.getChamadaCivil(latestTurno.id_turno),
+          apiService.getChamadaMilitar(latestTurno.id_turno)
+        ]);
+        setChamadaCivil(ccData);
+        setChamadaMilitar(cmData);
+      }
       console.log('Dados do dashboard carregados:', { militares: militaresData, civis: civisData, turnos: turnosData });
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
@@ -56,8 +67,8 @@ const Dashboard: React.FC = () => {
       militares: militares,
       civis: civis,
       chamadas: {
-        civil: data.chamadaCivil, // Manter do localStorage por enquanto
-        militar: data.chamadaMilitar
+        civil: chamadaCivil,
+        militar: chamadaMilitar
       }
     });
     setAiAnalysis(analysis || "Erro na análise.");
@@ -71,7 +82,7 @@ const Dashboard: React.FC = () => {
           <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">Visão <span className="text-blue-600">Geral</span></h2>
           <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Controle de prontidão e efetivo operacional.</p>
         </div>
-        <button 
+        <button
           onClick={handleAiAnalysis}
           disabled={loadingAi}
           className="group flex items-center justify-center gap-3 bg-slate-900 dark:bg-white text-white dark:text-slate-950 px-6 py-4 rounded-[2rem] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-xl shadow-slate-200 dark:shadow-none font-bold text-sm"
@@ -105,11 +116,11 @@ const Dashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip 
-                  contentStyle={{borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 700}}
-                  cursor={{fill: '#f1f5f9', opacity: 0.4}}
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 700 }}
+                  cursor={{ fill: '#f1f5f9', opacity: 0.4 }}
                 />
                 <Bar dataKey="count" fill="#3b82f6" radius={[12, 12, 12, 12]} barSize={40} />
               </BarChart>

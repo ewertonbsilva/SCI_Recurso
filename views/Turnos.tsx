@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, Trash2, ChevronRight, Clock } from 'lucide-react';
-import { loadData, saveData } from '../store';
 import { apiService } from '../apiService';
 import { Turno, Periodo } from '../types';
 import { ToastType } from '../components/Toast';
@@ -12,7 +11,6 @@ interface TurnosProps {
 }
 
 const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
-  const [data, setData] = useState(loadData());
   const [apiTurnos, setApiTurnos] = useState<Turno[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,9 +32,6 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
     }
   };
 
-  useEffect(() => {
-    saveData(data);
-  }, [data]);
 
   const handleAddTurno = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -69,7 +64,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   const removeTurno = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     try {
       await apiService.deleteTurno(id);
       onNotify?.("Turno removido com sucesso do banco de dados.", "warning");
@@ -80,7 +75,21 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
     }
   };
 
-  const sortedTurnos = [...apiTurnos].sort((a, b) => b.data.localeCompare(a.data));
+  // Função para garantir que os dados não venham aninhados (evitar [[...]])
+  const flattenData = (items: any[]): any[] => {
+    if (!items || !Array.isArray(items)) return [];
+    // Se o primeiro item for um array, assume que os dados estão no primeiro elemento (rows)
+    if (items.length > 0 && Array.isArray(items[0])) {
+      return items[0];
+    }
+    return items;
+  };
+
+  const sortedTurnos = flattenData([...apiTurnos]).sort((a, b) => {
+    const dateA = a?.data || '';
+    const dateB = b?.data || '';
+    return dateB.localeCompare(dateA);
+  });
 
   return (
     <div className="space-y-8">
@@ -122,21 +131,28 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sortedTurnos.map((t) => (
-              <div 
-                key={t.id_turno} 
-                onClick={() => onSelectTurno(t.id_turno)}
+              <div
+                key={t.id_turno}
+                onClick={() => {
+                  if (t.id_turno) {
+                    onSelectTurno(t.id_turno);
+                  } else {
+                    console.error('Tentativa de navegar para turno sem ID:', t);
+                    onNotify?.("Erro: Turno sem identificador válido.", "error");
+                  }
+                }}
                 className="group bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all border-l-8 border-l-blue-500"
               >
                 <div className="flex items-center gap-5">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}><Clock size={20} /></div>
                   <div>
-                    <p className="font-black text-slate-900 dark:text-white text-base tracking-tighter">{new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
+                    <p className="font-black text-slate-900 dark:text-white text-base tracking-tighter"> {t.data ? new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data inválida'}</p>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t.periodo}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                   <button onClick={(e) => removeTurno(e, t.id_turno)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
-                   <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                  <button onClick={(e) => removeTurno(e, t.id_turno)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
+                  <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
             ))}
