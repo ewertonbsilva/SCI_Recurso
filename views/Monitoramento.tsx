@@ -114,17 +114,8 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
 };
 
 const Monitoramento: React.FC = () => {
-  const [data, setData] = useState<{
-    turnos: any[],
-    chamadaCivil: any[],
-    civis: any[],
-    militares: any[]
-  }>({
-    turnos: [],
-    chamadaCivil: [],
-    civis: [],
-    militares: []
-  });
+  const [equipes, setEquipes] = useState<any[]>([]);
+  const [turnos, setTurnos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
@@ -132,11 +123,11 @@ const Monitoramento: React.FC = () => {
 
   const toggleFullscreen = async () => {
     console.log('Botão fullscreen clicado. Estado atual:', isFullscreen);
-    
+
     try {
       if (!isFullscreen) {
         console.log('Tentando entrar em fullscreen...');
-        
+
         // Tentar entrar em fullscreen
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen();
@@ -147,7 +138,7 @@ const Monitoramento: React.FC = () => {
         }
       } else {
         console.log('Tentando sair do fullscreen...');
-        
+
         // Tentar sair do fullscreen
         if (document.exitFullscreen) {
           await document.exitFullscreen();
@@ -168,28 +159,21 @@ const Monitoramento: React.FC = () => {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        const [turnos, civis, militares] = await Promise.all([
-          apiService.getTurnos(),
-          apiService.getCivis(),
-          apiService.getMilitares()
+        const [turnosData] = await Promise.all([
+          apiService.getTurnos()
         ]);
+        setTurnos(turnosData);
 
         // Selecionar o turno mais recente por padrão
-        const latestTurno = [...turnos].sort((a, b) => b.data.localeCompare(a.data))[0];
+        const latestTurno = [...turnosData].sort((a, b) => b.data.localeCompare(a.data))[0];
         if (latestTurno) {
           setSelectedDate(latestTurno.data);
           setSelectedTurno(latestTurno);
         }
 
-        // Buscar chamadaCivil para o turno selecionado
-        const chamadaCivil = latestTurno ? await apiService.getChamadaCivil(latestTurno.id_turno) : [];
-
-        setData({
-          turnos,
-          chamadaCivil,
-          civis,
-          militares
-        });
+        // Buscar equipes para o turno selecionado
+        const equipesData = latestTurno ? await apiService.getEquipes(latestTurno.id_turno) : [];
+        setEquipes(equipesData);
       } catch (error) {
         console.error('Erro ao buscar dados para monitoramento:', error);
       } finally {
@@ -204,10 +188,10 @@ const Monitoramento: React.FC = () => {
   }, []);
 
   // Obter datas únicas dos turnos
-  const uniqueDates = [...new Set(data.turnos.map(turno => turno.data))].sort((a, b) => (b as string).localeCompare(a as string));
-  
+  const uniqueDates = [...new Set(turnos.map((turno: any) => turno.data))].sort((a, b) => (b as string).localeCompare(a as string));
+
   // Obter turnos da data selecionada
-  const turnosDaData = data.turnos.filter(turno => turno.data === selectedDate);
+  const turnosDaData = turnos.filter((turno: any) => turno.data === selectedDate);
 
   // Limpar turno selecionado quando mudar a data
   useEffect(() => {
@@ -220,39 +204,44 @@ const Monitoramento: React.FC = () => {
   }, [selectedDate]);
 
   useEffect(() => {
-    const loadChamadaCivil = async () => {
+    const loadEquipes = async () => {
       if (selectedTurno) {
         try {
-          const chamadaCivil = await apiService.getChamadaCivil(selectedTurno.id_turno);
-          setData(prev => ({ ...prev, chamadaCivil }));
+          const equipesData = await apiService.getEquipes(selectedTurno.id_turno);
+          setEquipes(equipesData);
         } catch (error) {
-          console.error('Erro ao carregar chamada civil:', error);
+          console.error('Erro ao carregar equipes:', error);
         }
       }
     };
 
-    loadChamadaCivil();
+    loadEquipes();
   }, [selectedTurno]);
 
   const currentTurno = selectedTurno;
 
-  const mappedEquipes = data.chamadaCivil
-    .filter(cc => cc.id_turno === currentTurno?.id_turno)
-    .map(cc => {
-      const civil = data.civis.find(c => c.id_civil === cc.id_civil);
-      const chefeInfo = data.militares.find(m => m.matricula === cc.matricula_chefe);
+  const mappedEquipes = (equipes || [])
+    .map(eq => {
+      // Cálculo do efetivo: Chefe(1) + Motorista(1) + Auxiliares(quant_civil) + Guarnição(total_componentes)
+      let efetivo = 0;
+      if (eq.id_chamada_militar) efetivo += 1; // Chefe
+      if (eq.id_chamada_civil) {
+        efetivo += 1; // Motorista
+        efetivo += (eq.quant_civil || 0); // Auxiliares
+      }
+      efetivo += (eq.total_componentes || 0); // Guarnição / Componentes extras
 
       return {
-        id: cc.id_chamada_civil,
-        nome: cc.nome_equipe || civil?.modelo_veiculo || 'EQUIPE S/ VTR',
-        chefe: chefeInfo ? `${chefeInfo.nome_posto_grad} ${chefeInfo.nome_guerra}` : '',
-        motorista: civil?.nome_completo || 'N/A',
-        tel_mot: civil?.contato || 'N/A',
-        bairro: cc.bairro || '',
-        pessoas: (cc.quant_civil || 1) + (cc.matricula_chefe ? 1 : 0),
-        status: cc.status,
-        inicio: cc.last_status_update,
-        detalhes: `Orgão: ${civil?.orgao_origem} | Placa: ${civil?.placa_veiculo} | Chefe Matr.: ${cc.matricula_chefe || 'Nenhum'}`
+        id: eq.id_equipe,
+        nome: eq.nome_equipe || eq.vtr_modelo || 'EQUIPE S/ VTR',
+        chefe: eq.nome_militar ? `${eq.matricula_militar} - ${eq.nome_militar}` : '',
+        motorista: eq.nome_motorista || 'N/A',
+        tel_mot: 'N/A', // Opcional: buscar do cadastro se disponível
+        bairro: eq.bairro || '',
+        pessoas: efetivo,
+        status: eq.status,
+        inicio: new Date(eq.updated_at).getTime(),
+        detalhes: `VTR: ${eq.vtr_modelo || 'N/D'} | Chefe: ${eq.nome_militar || 'Nenhum'}`
       };
     });
 
@@ -289,17 +278,17 @@ const Monitoramento: React.FC = () => {
               {loading ? (
                 <span>Carregando...</span>
               ) : (
-                <select 
-                  value={selectedDate} 
+                <select
+                  value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="bg-transparent text-white outline-none cursor-pointer hover:bg-slate-700 rounded px-2 py-1 transition-colors"
                 >
                   {uniqueDates.map(date => {
                     const dateObj = new Date(date as string);
-                    const dateStr = dateObj.toLocaleDateString('pt-BR', { 
-                      day: '2-digit', 
-                      month: '2-digit', 
-                      year: 'numeric' 
+                    const dateStr = dateObj.toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
                     });
                     return (
                       <option key={date} value={date} className="bg-slate-800 text-white">
@@ -313,8 +302,8 @@ const Monitoramento: React.FC = () => {
             <div className="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-2xl">
               <Users size={16} />
               {selectedDate && turnosDaData.length > 0 ? (
-                <select 
-                  value={selectedTurno?.id_turno || ''} 
+                <select
+                  value={selectedTurno?.id_turno || ''}
                   onChange={(e) => {
                     const turno = turnosDaData.find(t => t.id_turno === e.target.value);
                     setSelectedTurno(turno);

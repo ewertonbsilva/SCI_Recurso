@@ -229,65 +229,13 @@ app.get('/api/vw/logs-recentes', async (req: any, res: any) => {
 });
 
 
-// Endpoint para listar turnos
-app.get('/api/turnos', async (req: any, res: any) => {
-  try {
-    const result = await getConnection().query('SELECT * FROM turnos ORDER BY data DESC, periodo DESC');
-    const turnos = (result as any)[0];
-    res.json(turnos);
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar turnos' });
-  }
-});
-
-app.delete('/api/turnos/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-
-    // Remover dependências primeiro para evitar erro de FK
-    await getConnection().query('DELETE FROM chamada_militar WHERE id_turno = ?', [id]);
-    await getConnection().query('DELETE FROM chamada_civil WHERE id_turno = ?', [id]);
-    await getConnection().query('DELETE FROM logs_operacionais WHERE id_turno = ?', [id]);
-
-    // Remover o turno
-    await getConnection().query('DELETE FROM turnos WHERE id_turno = ?', [id]);
-
-    res.json({ message: 'Turno removido com sucesso' });
-  } catch (error) {
-    console.error('Erro ao remover turno:', error);
-    res.status(500).json({ error: 'Erro ao remover turno do banco de dados' });
-  }
-});
-
-// Endpoint tradicional para criar turno (funciona sempre)
-app.post('/api/turnos', async (req: any, res: any) => {
-  try {
-    const { data, periodo } = req.body;
-
-    // Gerar ID manualmente (solução que sempre funciona)
-    const id_turno = `turno_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
-
-    const result = await getConnection().query(
-      'INSERT INTO turnos (id_turno, data, periodo) VALUES (?, ?, ?)',
-      [id_turno, data, periodo]
-    );
-
-    res.json({ id_turno, data, periodo });
-  } catch (error) {
-    console.error('Erro ao criar turno:', error);
-    res.status(500).json({ error: 'Erro ao criar turno', details: error.message });
-  }
-});
-
+// Consolidated Military routes
 app.get('/api/militares', async (req: any, res: any) => {
   try {
     const result = await getConnection().query(`
-      SELECT 
+      SELECT
         m.*,
-        pg.nome_posto_grad,
-        pg.hierarquia,
-        f.nome_forca,
-        u.nome_ubm
+        pg.nome_posto_grad, pg.hierarquia, f.nome_forca, u.nome_ubm
       FROM militares m
       LEFT JOIN posto_grad pg ON m.id_posto_grad = pg.id_posto_grad
       LEFT JOIN forcas f ON m.id_forca = f.id_forca
@@ -295,15 +243,10 @@ app.get('/api/militares', async (req: any, res: any) => {
       ORDER BY pg.hierarquia ASC, m.nome_guerra
     `);
     const militares = (result as any)[0];
-    
-    // Converter campos enum Y/N para booleanos
     const militaresFormatados = militares.map((m: any) => ({
       ...m,
-      cpoe: m.cpoe === 'Y',
-      mergulhador: m.mergulhador === 'Y',
-      restricao_medica: m.restricao_medica === 'Y'
+      cpoe: m.cpoe === 'Y', mergulhador: m.mergulhador === 'Y', restricao_medica: m.restricao_medica === 'Y'
     }));
-    
     res.json(militaresFormatados);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar militares' });
@@ -312,273 +255,58 @@ app.get('/api/militares', async (req: any, res: any) => {
 
 app.post('/api/militares', async (req: any, res: any) => {
   try {
-    console.log('Dados recebidos para criar militar:', req.body);
     const { matricula, nome_completo, id_posto_grad, nome_guerra, rg, id_forca, cpoe, mergulhador, restricao_medica, desc_rest_med, id_ubm } = req.body;
-
-    // Converter valores para garantir tipos corretos
-    const rgValue = rg || null;
-    const descRestMedValue = desc_rest_med || null;
-    const idUbmValue = id_ubm || null;
-    const cpoeValue = cpoe ? 'Y' : 'N';
-    const mergulhadorValue = mergulhador ? 'Y' : 'N';
-    const restricaoMedicaValue = restricao_medica ? 'Y' : 'N';
-
-    const result = await getConnection().query(
+    await getConnection().query(
       'INSERT INTO militares (matricula, nome_completo, id_posto_grad, nome_guerra, rg, id_forca, cpoe, mergulhador, restricao_medica, desc_rest_med, id_ubm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [matricula, nome_completo, id_posto_grad, nome_guerra, rgValue, id_forca, cpoeValue, mergulhadorValue, restricaoMedicaValue, descRestMedValue, idUbmValue]
+      [matricula, nome_completo, id_posto_grad, nome_guerra, rg || null, id_forca, cpoe ? 'Y' : 'N', mergulhador ? 'Y' : 'N', restricao_medica ? 'Y' : 'N', desc_rest_med || null, id_ubm || null]
     );
-    console.log('Militar criado com sucesso:', { matricula, ...req.body });
     res.json({ matricula, ...req.body });
   } catch (error) {
-    console.error('Erro detalhado ao criar militar:', error);
     res.status(500).json({ error: 'Erro ao criar militar', details: error.message });
   }
 });
 
-app.put('/api/militares/:matricula', async (req: any, res: any) => {
-  try {
-    const { matricula } = req.params;
-    const { nome_completo, id_posto_grad, nome_guerra, rg, id_forca, cpoe, mergulhador, restricao_medica, desc_rest_med, id_ubm } = req.body;
-    
-    // Converter valores para garantir tipos corretos
-    const idPostoGradValue = id_posto_grad ? parseInt(id_posto_grad) : null;
-    const idForcaValue = id_forca ? parseInt(id_forca) : null;
-    const cpoeValue = cpoe ? 'Y' : 'N';
-    const mergulhadorValue = mergulhador ? 'Y' : 'N';
-    const restricaoMedicaValue = restricao_medica ? 'Y' : 'N';
-    const descRestMedValue = desc_rest_med || null;
-    const idUbmValue = id_ubm || null;
-    
-    await getConnection().query(
-      'UPDATE militares SET nome_completo = ?, id_posto_grad = ?, nome_guerra = ?, rg = ?, id_forca = ?, cpoe = ?, mergulhador = ?, restricao_medica = ?, desc_rest_med = ?, id_ubm = ? WHERE matricula = ?',
-      [nome_completo, idPostoGradValue, nome_guerra, rg, idForcaValue, cpoeValue, mergulhadorValue, restricaoMedicaValue, descRestMedValue, idUbmValue, matricula]
-    );
-    res.json({ matricula, ...req.body });
-  } catch (error) {
-    console.error('Erro ao atualizar militar:', error);
-    res.status(500).json({ error: 'Erro ao atualizar militar' });
-  }
-});
-
-app.delete('/api/militares/:matricula', async (req: any, res: any) => {
-  try {
-    const { matricula } = req.params;
-    await getConnection().query('DELETE FROM militares WHERE matricula = ?', [matricula]);
-    res.json({ message: 'Militar removido com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao remover militar' });
-  }
-});
-
-// Postos e Graduações
+// Consolidated Postos/Graduações routes
 app.get('/api/postos-grad', async (req: any, res: any) => {
   try {
-    const result = await getConnection().query(
-      'SELECT * FROM posto_grad ORDER BY hierarquia ASC'
-    ) as any[];
-    res.json(result[0]);
+    const result = await getConnection().query('SELECT * FROM posto_grad ORDER BY hierarquia ASC');
+    res.json((result as any)[0]);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar postos/graduações' });
   }
 });
 
-app.post('/api/postos-grad', async (req: any, res: any) => {
-  try {
-    const { nome_posto_grad, hierarquia } = req.body;
-    await getConnection().query(
-      'INSERT INTO posto_grad (nome_posto_grad, hierarquia) VALUES (?, ?)',
-      [nome_posto_grad, hierarquia]
-    );
-    res.json({ nome_posto_grad, hierarquia });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao criar posto/graduação', details: error.message });
-  }
-});
-
-app.put('/api/postos-grad/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    const { nome_posto_grad, hierarquia } = req.body;
-    await getConnection().query(
-      'UPDATE posto_grad SET nome_posto_grad = ?, hierarquia = ? WHERE id_posto_grad = ?',
-      [nome_posto_grad, hierarquia, id]
-    );
-    res.json({ id_posto_grad: id, nome_posto_grad, hierarquia });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao atualizar posto/graduação' });
-  }
-});
-
-app.delete('/api/postos-grad/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    await getConnection().query('DELETE FROM posto_grad WHERE id_posto_grad = ?', [id]);
-    res.json({ message: 'Posto/graduação removido com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao remover posto/graduação' });
-  }
-});
-
-// Endpoint para buscar forças
+// Consolidated Forças routes
 app.get('/api/forcas', async (req: any, res: any) => {
   try {
-    const result = await getConnection().query(
-      'SELECT * FROM forcas ORDER BY nome_forca ASC'
-    ) as any[];
-    res.json(result[0]);
+    const result = await getConnection().query('SELECT * FROM forcas ORDER BY nome_forca ASC');
+    res.json((result as any)[0]);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar forças' });
   }
 });
 
-app.post('/api/forcas', async (req: any, res: any) => {
-  try {
-    const { nome_forca } = req.body;
-    await getConnection().query(
-      'INSERT INTO forcas (nome_forca) VALUES (?)',
-      [nome_forca]
-    );
-    res.json({ nome_forca });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao criar força', details: error.message });
-  }
-});
-
-app.put('/api/forcas/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    const { nome_forca } = req.body;
-    await getConnection().query(
-      'UPDATE forcas SET nome_forca = ? WHERE id_forca = ?',
-      [nome_forca, id]
-    );
-    res.json({ id_forca: id, nome_forca });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao atualizar força' });
-  }
-});
-
-app.delete('/api/forcas/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    await getConnection().query('DELETE FROM forcas WHERE id_forca = ?', [id]);
-    res.json({ message: 'Força removida com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao remover força' });
-  }
-});
-
-// Endpoint para buscar órgãos de origem
+// Consolidated Órgãos routes
 app.get('/api/orgaos-origem', async (req: any, res: any) => {
   try {
-    const result = await getConnection().query(
-      'SELECT * FROM orgaos_origem ORDER BY nome_orgao ASC'
-    ) as any[];
-    res.json(result[0]);
+    const result = await getConnection().query('SELECT * FROM orgaos_origem ORDER BY nome_orgao ASC');
+    res.json((result as any)[0]);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar órgãos de origem' });
   }
 });
 
-app.post('/api/orgaos-origem', async (req: any, res: any) => {
-  try {
-    const { nome_orgao } = req.body;
-    await getConnection().query(
-      'INSERT INTO orgaos_origem (nome_orgao) VALUES (?)',
-      [nome_orgao]
-    );
-    res.json({ nome_orgao });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao criar órgão de origem', details: error.message });
-  }
-});
-
-app.put('/api/orgaos-origem/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    const { nome_orgao } = req.body;
-    await getConnection().query(
-      'UPDATE orgaos_origem SET nome_orgao = ? WHERE id_orgao_origem = ?',
-      [nome_orgao, id]
-    );
-    res.json({ id_orgao_origem: id, nome_orgao });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao atualizar órgão de origem' });
-  }
-});
-
-app.delete('/api/orgaos-origem/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    await getConnection().query('DELETE FROM orgaos_origem WHERE id_orgao_origem = ?', [id]);
-    res.json({ message: 'Órgão de origem removido com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao remover órgão de origem' });
-  }
-});
-
+// Consolidated Civis routes
 app.get('/api/civis', async (req: any, res: any) => {
   try {
     const result = await getConnection().query(`
-      SELECT 
-        c.*,
-        o.nome_orgao
-      FROM civis c
+      SELECT c.*, o.nome_orgao FROM civis c
       LEFT JOIN orgaos_origem o ON c.id_orgao_origem = o.id_orgao_origem
       ORDER BY c.nome_completo
     `);
     res.json((result as any)[0]);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar civis' });
-  }
-});
-
-app.post('/api/civis', async (req: any, res: any) => {
-  try {
-    console.log('Dados recebidos para criar civil:', req.body);
-    const { nome_completo, contato, id_orgao_origem, motorista, modelo_veiculo, placa_veiculo } = req.body;
-
-    // Gerar ID usando procedure
-    const idResult = await getConnection().query('CALL sp_gerar_id_civil()');
-    const id_civil = idResult[0][0].id_civil;
-
-    // Converter undefined para null
-    const modeloVeiculoValue = modelo_veiculo || null;
-    const placaVeiculoValue = placa_veiculo || null;
-
-    const result = await getConnection().query(
-      'INSERT INTO civis (id_civil, nome_completo, contato, id_orgao_origem, motorista, modelo_veiculo, placa_veiculo) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id_civil, nome_completo, contato, id_orgao_origem, motorista, modeloVeiculoValue, placaVeiculoValue]
-    );
-    console.log('Civil criado com sucesso:', { id_civil, ...req.body });
-    res.json({ id_civil, ...req.body });
-  } catch (error) {
-    console.error('Erro detalhado ao criar civil:', error);
-    res.status(500).json({ error: 'Erro ao criar civil', details: error.message });
-  }
-});
-
-app.put('/api/civis/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    const { nome_completo, contato, id_orgao_origem, motorista, modelo_veiculo, placa_veiculo } = req.body;
-    await getConnection().query(
-      'UPDATE civis SET nome_completo = ?, contato = ?, id_orgao_origem = ?, motorista = ?, modelo_veiculo = ?, placa_veiculo = ? WHERE id_civil = ?',
-      [nome_completo, contato, id_orgao_origem, motorista, modelo_veiculo, placa_veiculo, id]
-    );
-    res.json({ id_civil: id, ...req.body });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao atualizar civil' });
-  }
-});
-
-app.delete('/api/civis/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    await getConnection().query('DELETE FROM civis WHERE id_civil = ?', [id]);
-    res.json({ message: 'Civil removido com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao remover civil' });
   }
 });
 
@@ -595,21 +323,48 @@ app.get('/api/chamada-militar/:idTurno', async (req: any, res: any) => {
   }
 });
 
-// Endpoint para verificar estrutura da tabela
-app.get('/api/table-structure/:tableName', async (req: any, res: any) => {
+// Endpoint para verificar estrutura da tabela militares
+app.get('/api/debug/militares-structure', async (req: any, res: any) => {
   try {
-    const { tableName } = req.params;
-    const [structure] = await getConnection().query(`
-      SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY 
-      FROM INFORMATION_SCHEMA.COLUMNS 
-      WHERE TABLE_SCHEMA = 'sci_recurso' AND TABLE_NAME = ?
-      ORDER BY ORDINAL_POSITION
-    `, [tableName]);
-
-    res.json({ table: tableName, structure });
+    const [structure] = await getConnection().query('DESCRIBE militares');
+    res.json({ structure });
   } catch (error) {
-    console.error('Erro ao verificar estrutura da tabela:', error);
-    res.status(500).json({ error: 'Erro ao verificar estrutura da tabela' });
+    console.error('Erro ao verificar estrutura:', error);
+    res.status(500).json({ error: 'Erro ao verificar estrutura', details: error.message });
+  }
+});
+
+// Endpoint para verificar estrutura da tabela chamada_civil
+app.get('/api/debug/chamada-civil-structure', async (req: any, res: any) => {
+  try {
+    const [structure] = await getConnection().query('DESCRIBE chamada_civil');
+    res.json({ structure });
+  } catch (error) {
+    console.error('Erro ao verificar estrutura:', error);
+    res.status(500).json({ error: 'Erro ao verificar estrutura', details: error.message });
+  }
+});
+
+// Endpoint para verificar TRIGGERS da tabela chamada_civil
+app.get('/api/debug/chamada-civil-triggers', async (req: any, res: any) => {
+  try {
+    const [triggers] = await getConnection().query('SHOW TRIGGERS LIKE \'chamada_civil%\'');
+    res.json({ triggers });
+  } catch (error) {
+    console.error('Erro ao verificar triggers:', error);
+    res.status(500).json({ error: 'Erro ao verificar triggers', details: error.message });
+  }
+});
+
+// Endpoint para remover TRIGGER problemático
+app.post('/api/debug/drop-trigger', async (req: any, res: any) => {
+  try {
+    const { triggerName } = req.body;
+    await getConnection().query(`DROP TRIGGER IF EXISTS ${triggerName}`);
+    res.json({ message: `TRIGGER ${triggerName} removido com sucesso` });
+  } catch (error) {
+    console.error('Erro ao remover trigger:', error);
+    res.status(500).json({ error: 'Erro ao remover trigger', details: error.message });
   }
 });
 
@@ -650,11 +405,146 @@ app.post('/api/fix-chamada-militar-fk', async (req: any, res: any) => {
   }
 });
 
+// Turnos
+app.get('/api/turnos', async (req: any, res: any) => {
+  try {
+    const result = await getConnection().query(`
+        SELECT t.*, 
+               (SELECT COUNT(*) FROM equipes e WHERE e.id_turno = t.id_turno) as total_equipes
+        FROM turnos t 
+        ORDER BY t.data DESC
+      `);
+    res.json((result as any)[0]);
+  } catch (error) {
+    console.error('Erro ao buscar turnos:', error);
+    res.status(500).json({ error: 'Erro ao buscar turnos' });
+  }
+});
+
+// Endpoints para equipes
+app.get('/api/equipes/:idTurno', async (req: any, res: any) => {
+  try {
+    const { idTurno } = req.params;
+    const result = await getConnection().query(
+      `SELECT e.*, 
+                t.data as turno_data, t.periodo as turno_periodo,
+                cm.matricula as matricula_militar, m.nome_guerra as nome_militar,
+                cc.quant_civil as quant_civil, cc.id_civil as id_civil, c.nome_completo as nome_motorista, c.modelo_veiculo as vtr_modelo,
+                (SELECT COUNT(*) FROM componentes_equipe ce WHERE ce.id_equipe = e.id_equipe) as total_componentes
+         FROM equipes e 
+         LEFT JOIN turnos t ON e.id_turno = t.id_turno
+         LEFT JOIN chamada_militar cm ON e.id_chamada_militar = cm.id_chamada_militar
+         LEFT JOIN militares m ON cm.matricula = m.matricula
+         LEFT JOIN chamada_civil cc ON e.id_chamada_civil = cc.id_chamada_civil
+         LEFT JOIN civis c ON cc.id_civil = c.id_civil
+         WHERE e.id_turno = ?`,
+      [idTurno]
+    ) as any[];
+
+    res.json(result[0]);
+  } catch (error) {
+    console.error('Erro ao buscar equipes:', error);
+    res.status(500).json({ error: 'Erro ao buscar equipes' });
+  }
+});
+
+app.post('/api/equipes', async (req: any, res: any) => {
+  try {
+    const { id_turno, id_chamada_militar, id_chamada_civil, nome_equipe, status, total_efetivo, bairro } = req.body;
+
+    // Calcular total_efetivo automaticamente se não fornecido
+    let efetivo = total_efetivo || 0;
+    if (!efetivo && id_chamada_civil) {
+      const [civilData] = await getConnection().query('SELECT quant_civil FROM chamada_civil WHERE id_chamada_civil = ?', [id_chamada_civil]) as any[];
+      if (Array.isArray(civilData) && civilData.length > 0) {
+        efetivo = civilData[0].quant_civil || 0;
+      }
+    }
+    if (!efetivo && id_chamada_militar) {
+      efetivo = 1; // Cada militar conta como 1
+    }
+
+    const result = await getConnection().query(
+      'INSERT INTO equipes (id_turno, id_chamada_militar, id_chamada_civil, nome_equipe, status, total_efetivo, bairro) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id_turno, id_chamada_militar, id_chamada_civil, nome_equipe || 'Equipe', status || 'livre', efetivo, bairro || null]
+    ) as any;
+
+    const insertId = (result as any).insertId || result[0]?.insertId;
+    res.json({ id_equipe: insertId, id_turno, id_chamada_militar, id_chamada_civil, nome_equipe, status: status || 'livre', total_efetivo: efetivo, bairro });
+  } catch (error) {
+    console.error('Erro ao criar equipe:', error);
+    res.status(500).json({ error: 'Erro ao criar equipe' });
+  }
+});
+
+app.put('/api/equipes/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const updateFields = [];
+    const updateValues = [];
+
+    if (updates.id_turno !== undefined) {
+      updateFields.push('id_turno = ?');
+      updateValues.push(updates.id_turno);
+    }
+    if (updates.id_chamada_militar !== undefined) {
+      updateFields.push('id_chamada_militar = ?');
+      updateValues.push(updates.id_chamada_militar);
+    }
+    if (updates.id_chamada_civil !== undefined) {
+      updateFields.push('id_chamada_civil = ?');
+      updateValues.push(updates.id_chamada_civil);
+    }
+    if (updates.nome_equipe !== undefined) {
+      updateFields.push('nome_equipe = ?');
+      updateValues.push(updates.nome_equipe);
+    }
+    if (updates.status !== undefined) {
+      updateFields.push('status = ?');
+      updateValues.push(updates.status);
+    }
+    if (updates.total_efetivo !== undefined) {
+      updateFields.push('total_efetivo = ?');
+      updateValues.push(updates.total_efetivo);
+    }
+    if (updates.bairro !== undefined) {
+      updateFields.push('bairro = ?');
+      updateValues.push(updates.bairro);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+    }
+
+    updateValues.push(id);
+
+    await getConnection().query(
+      `UPDATE equipes SET ${updateFields.join(', ')} WHERE id_equipe = ?`,
+      updateValues
+    );
+
+    res.json({ id_equipe: id, ...updates });
+  } catch (error) {
+    console.error('Erro ao atualizar equipe:', error);
+    res.status(500).json({ error: 'Erro ao atualizar equipe' });
+  }
+});
+
+app.delete('/api/equipes/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    await getConnection().query('DELETE FROM equipes WHERE id_equipe = ?', [id]);
+    res.json({ message: 'Equipe removida com sucesso' });
+  } catch (error) {
+    console.error('Erro ao remover equipe:', error);
+    res.status(500).json({ error: 'Erro ao remover equipe' });
+  }
+});
+
 app.post('/api/chamada-militar', async (req: any, res: any) => {
   try {
-    console.log('=== DEBUG POST /api/chamada-militar ===');
-    console.log('Corpo da requisição:', JSON.stringify(req.body, null, 2));
-
     const { id_chamada_militar, id_turno, matricula, funcao, presenca, obs } = req.body;
 
     // Validar campos obrigatórios
@@ -688,37 +578,23 @@ app.post('/api/chamada-militar', async (req: any, res: any) => {
     }
 
     // Tentar INSERT com valores explícitos - sem created_at/updated_at pois são automáticos
-    const sql = `
-      INSERT INTO chamada_militar 
-      (id_chamada_militar, id_turno, matricula, funcao, presenca, obs) 
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
+    const sql = `INSERT INTO chamada_militar (id_turno, matricula, id_chamada_militar, funcao, presenca, obs) VALUES (?, ?, ?, ?, ?, ?)`;
 
     const values = [
-      id_chamada_militar,
       id_turno,
       matricula,
+      id_chamada_militar,
       funcao || 'Combatente',
       presenca !== undefined ? (presenca ? 1 : 0) : 1, // Converter boolean para TINYINT
       obs || null
     ];
-
-    console.log('SQL final:', sql);
-    console.log('Valores finais:', values);
 
     const result = await getConnection().query(sql, values);
 
     console.log('INSERT executado com sucesso. Resultado:', result);
     res.json({ id_chamada_militar, ...req.body });
   } catch (error) {
-    console.error('=== ERRO DETALHADO POST /api/chamada-militar ===');
-    console.error('Error message:', error.message);
-    console.error('Error code:', error.code);
-    console.error('Error errno:', error.errno);
-    console.error('Error sql:', error.sql);
-    console.error('Error sqlMessage:', error.sqlMessage);
-    console.error('Stack:', error.stack);
-
+    console.error('Erro ao criar chamada militar:', error.message);
     res.status(500).json({
       error: 'Erro ao criar chamada militar',
       details: error.message,
@@ -774,14 +650,33 @@ app.get('/api/chamada-civil/:idTurno', async (req: any, res: any) => {
 
 app.post('/api/chamada-civil', async (req: any, res: any) => {
   try {
-    const { id_chamada_civil, id_turno, id_civil, nome_equipe, quant_civil, status, matricula_chefe, bairro, last_status_update } = req.body;
+    const { id_chamada_civil, id_turno, id_civil, quant_civil } = req.body;
+
+    console.log('POST /api/chamada-civil - Dados recebidos:', {
+      id_chamada_civil,
+      id_turno,
+      id_civil,
+      quant_civil
+    });
+
     const result = await getConnection().query(
-      'INSERT INTO chamada_civil (id_chamada_civil, id_turno, id_civil, nome_equipe, quant_civil, status, matricula_chefe, bairro, last_status_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id_chamada_civil, id_turno, id_civil, nome_equipe, quant_civil, status, matricula_chefe, bairro, last_status_update]
+      'INSERT INTO chamada_civil (id_chamada_civil, id_turno, id_civil, quant_civil) VALUES (?, ?, ?, ?)',
+      [id_chamada_civil, id_turno, id_civil, quant_civil]
     );
+
+    console.log('INSERT executado com sucesso:', result);
     res.json({ id_chamada_civil, ...req.body });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao criar chamada civil' });
+    console.error('Erro ao criar chamada civil:', error.message);
+    console.error('Stack trace:', error.stack);
+    console.error('SQL Message:', error.sqlMessage);
+    console.error('SQL Code:', error.code);
+    res.status(500).json({
+      error: 'Erro ao criar chamada civil',
+      details: error.message,
+      sqlMessage: error.sqlMessage,
+      code: error.code
+    });
   }
 });
 
@@ -802,29 +697,9 @@ app.put('/api/chamada-civil/:id', async (req: any, res: any) => {
       updateFields.push('id_civil = ?');
       updateValues.push(updates.id_civil);
     }
-    if (updates.nome_equipe !== undefined) {
-      updateFields.push('nome_equipe = ?');
-      updateValues.push(updates.nome_equipe);
-    }
     if (updates.quant_civil !== undefined) {
       updateFields.push('quant_civil = ?');
       updateValues.push(updates.quant_civil);
-    }
-    if (updates.status !== undefined) {
-      updateFields.push('status = ?');
-      updateValues.push(updates.status);
-    }
-    if (updates.matricula_chefe !== undefined) {
-      updateFields.push('matricula_chefe = ?');
-      updateValues.push(updates.matricula_chefe);
-    }
-    if (updates.bairro !== undefined) {
-      updateFields.push('bairro = ?');
-      updateValues.push(updates.bairro);
-    }
-    if (updates.last_status_update !== undefined) {
-      updateFields.push('last_status_update = ?');
-      updateValues.push(updates.last_status_update);
     }
 
     if (updateFields.length === 0) {
@@ -889,81 +764,28 @@ app.delete('/api/chamada-civil/:id', async (req: any, res: any) => {
   }
 });
 
-// UBMs
+// Consolidated UBM routes
 app.get('/api/ubms', async (req: any, res: any) => {
   try {
     const result = await getConnection().query('SELECT * FROM ubms ORDER BY nome_ubm ASC');
     res.json((result as any)[0]);
   } catch (error) {
-    console.error('Erro ao buscar UBMs:', error);
     res.status(500).json({ error: 'Erro ao buscar UBMs' });
   }
 });
 
 app.post('/api/ubms', async (req: any, res: any) => {
   try {
-    const { id_ubm, nome_ubm } = req.body;
-
-    // Gerar ID automaticamente
+    const { nome_ubm } = req.body;
     const idResult = await getConnection().query('CALL sp_gerar_id_ubm()');
     const id = idResult[0][0].id_ubm;
-
-    const result = await getConnection().query(
-      'INSERT INTO ubms (id_ubm, nome_ubm) VALUES (?, ?)',
-      [id, nome_ubm]
-    );
-
+    await getConnection().query('INSERT INTO ubms (id_ubm, nome_ubm) VALUES (?, ?)', [id, nome_ubm]);
     res.json({ id_ubm: id, nome_ubm });
   } catch (error) {
-    console.error('Erro ao criar UBM:', error);
     res.status(500).json({ error: 'Erro ao criar UBM', details: error.message });
   }
 });
 
-app.put('/api/ubms/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-    const { nome_ubm } = req.body;
-
-    const result = await getConnection().query(
-      'UPDATE ubms SET nome_ubm = ? WHERE id_ubm = ?',
-      [nome_ubm, id]
-    );
-
-    res.json({ id_ubm: id, nome_ubm });
-  } catch (error) {
-    console.error('Erro ao atualizar UBM:', error);
-    res.status(500).json({ error: 'Erro ao atualizar UBM', details: error.message });
-  }
-});
-
-app.delete('/api/ubms/:id', async (req: any, res: any) => {
-  try {
-    const { id } = req.params;
-
-    // Verificar se existe em militares antes de excluir
-    const [militaresUBM] = await getConnection().query(
-      'SELECT COUNT(*) as count FROM militares WHERE id_ubm = ?',
-      [id]
-    );
-
-    const militarCount = militaresUBM[0][0].count;
-
-    if (militarCount > 0) {
-      return res.status(400).json({
-        error: 'UBM não pode ser excluída',
-        details: `Existem ${militarCount} militares vinculados a esta UBM`
-      });
-    }
-
-    await getConnection().query('DELETE FROM ubms WHERE id_ubm = ?', [id]);
-
-    res.json({ message: 'UBM excluída com sucesso' });
-  } catch (error) {
-    console.error('Erro ao excluir UBM:', error);
-    res.status(500).json({ error: 'Erro ao excluir UBM', details: error.message });
-  }
-});
 app.get('/api/atestados', async (req: any, res: any) => {
   try {
     const result = await getConnection().query('SELECT * FROM atestados_medicos ORDER BY data_inicio DESC');
@@ -976,21 +798,13 @@ app.get('/api/atestados', async (req: any, res: any) => {
 app.post('/api/atestados', async (req: any, res: any) => {
   try {
     const { matricula, data_inicio, dias, motivo } = req.body;
-
-    // Inserir sem especificar ID (deixa o MySQL gerar automaticamente com UUID())
-    const result = await getConnection().query(
-      'INSERT INTO atestados_medicos (matricula, data_inicio, dias, motivo) VALUES (?, ?, ?, ?)',
-      [matricula, data_inicio, dias, motivo]
+    const id = `atest_${Date.now()}`;
+    await getConnection().query(
+      'INSERT INTO atestados_medicos (id, matricula, data_inicio, dias, motivo) VALUES (?, ?, ?, ?, ?)',
+      [id, matricula, data_inicio, dias, motivo]
     );
-    
-    const insertedId = (result as any)[0].insertId;
-    console.log('Atestado criado com sucesso:', { insertedId, ...req.body });
-    res.json({ id: insertedId, ...req.body });
+    res.json({ id, ...req.body });
   } catch (error) {
-    console.error('Erro ao criar atestado:', error);
-    console.error('Detalhes do erro:', error.message);
-    console.error('Stack:', error.stack);
-    console.error('Dados recebidos:', req.body);
     res.status(500).json({ error: 'Erro ao criar atestado', details: error.message });
   }
 });
@@ -1312,7 +1126,7 @@ app.post('/api/users', authenticateToken, requireRole(['Administrador']), async 
       'INSERT INTO usuarios (id, username, nome, password, role) VALUES (?, ?, ?, ?, ?)',
       [userId, username, nome, hashedPassword, role]
     );
-    
+
     res.json({ id: userId, username, nome, role });
   } catch (error) {
     console.error('Erro ao criar usuário:', error);
@@ -1339,13 +1153,13 @@ app.put('/api/users/:id', authenticateToken, requireRole(['Administrador']), asy
     params.push(id);
 
     await getConnection().query(query, params);
-    
+
     // Retornar usuário atualizado sem senha
     const result = await getConnection().query(
       'SELECT id, username, nome, role FROM usuarios WHERE id = ?',
       [id]
     );
-    
+
     res.json((result as any)[0][0]);
   } catch (error) {
     console.error('Erro ao atualizar usuário:', error);
@@ -1356,16 +1170,58 @@ app.put('/api/users/:id', authenticateToken, requireRole(['Administrador']), asy
 app.delete('/api/users/:id', authenticateToken, requireRole(['Administrador']), async (req: AuthRequest, res: any) => {
   try {
     const { id } = req.params;
-    
+
     // Impedir que o usuário se exclua
     if (id === req.user?.id) {
       return res.status(400).json({ error: 'Não é possível excluir seu próprio usuário' });
     }
-    
+
     await getConnection().query('DELETE FROM usuarios WHERE id = ?', [id]);
     res.json({ message: 'Usuário removido com sucesso' });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao remover usuário' });
+  }
+});
+
+// Endpoints para Componentes da Equipe (Guarnição)
+app.get('/api/equipes/componentes/:idEquipe', async (req: any, res: any) => {
+  try {
+    const { idEquipe } = req.params;
+    const result = await getConnection().query(`
+      SELECT ce.*, m.nome_guerra, pg.nome_posto_grad, m.matricula
+      FROM componentes_equipe ce
+      JOIN chamada_militar cm ON ce.id_chamada_militar = cm.id_chamada_militar
+      JOIN militares m ON cm.matricula = m.matricula
+      LEFT JOIN posto_grad pg ON m.id_posto_grad = pg.id_posto_grad
+      WHERE ce.id_equipe = ?
+    `, [idEquipe]);
+    res.json((result as any)[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar componentes da equipe' });
+  }
+});
+
+app.post('/api/equipes/componentes', async (req: any, res: any) => {
+  try {
+    const { id_equipe, id_chamada_militar, id_turno } = req.body;
+    const id = `comp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    await getConnection().query(
+      'INSERT INTO componentes_equipe (id_componente, id_equipe, id_chamada_militar, id_turno) VALUES (?, ?, ?, ?)',
+      [id, id_equipe, id_chamada_militar, id_turno]
+    );
+    res.json({ id_componente: id, ...req.body });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao adicionar componente à equipe' });
+  }
+});
+
+app.delete('/api/equipes/componentes/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    await getConnection().query('DELETE FROM componentes_equipe WHERE id_componente = ?', [id]);
+    res.json({ message: 'Componente removido com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao remover componente' });
   }
 });
 
@@ -1374,8 +1230,21 @@ app.get('/api/health', (req: any, res: any) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Atualizar quantidade de civis em uma chamada
+app.put('/api/chamada-civil/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { quant_civil } = req.body;
+    await getConnection().query('UPDATE chamada_civil SET quant_civil = ? WHERE id_chamada_civil = ?', [quant_civil, id]);
+    res.json({ message: 'Quantidade atualizada com sucesso' });
+  } catch (error) {
+    console.error('Erro ao atualizar chamada civil:', error);
+    res.status(500).json({ error: 'Erro ao atualizar chamada civil' });
+  }
+});
+
 // Initialize database and start server
-async function startServer() {
+const startServer = async () => {
   try {
     // Connect to database
     await initializeDatabase();

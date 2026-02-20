@@ -138,7 +138,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
       id_chamada_civil: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
       id_turno: id_turno,
       id_civil: id,
-      quant_civil: 1,
+      quant_civil: 0,
       status: StatusEquipe.LIVRE,
       last_status_update: Date.now(),
       bairro: ''
@@ -329,7 +329,10 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                     return (
                       <tr key={cc.id_chamada_civil} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                         <td className="px-8 py-5"><p className="font-black text-slate-900 dark:text-white text-sm uppercase">{c?.nome_completo}</p><p className="text-[10px] font-bold text-slate-400 mt-1">{c?.nome_orgao}</p></td>
-                        <td className="px-8 py-5 text-center"><input type="number" min="1" value={cc.quant_civil} onChange={e => updateChamadaCiv(cc.id_chamada_civil, { quant_civil: parseInt(e.target.value) || 1 })} className="w-16 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-black text-blue-600 outline-none" /></td>
+                        <td className="px-8 py-5 text-center"><input type="number" min="0" value={cc.quant_civil} onChange={e => {
+  const value = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+  updateChamadaCiv(cc.id_chamada_civil, { quant_civil: value });
+}} className="w-16 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-black text-blue-600 outline-none" /></td>
                         <td className="px-8 py-5 text-right"><button onClick={(e) => removeChamadaCiv(e, cc.id_chamada_civil)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button></td>
                       </tr>
                     );

@@ -160,6 +160,31 @@ class ApiService {
     });
   }
 
+  // Equipes
+  async getEquipes(idTurno: string): Promise<any[]> {
+    return this.request<any[]>(`/api/equipes/${idTurno}`);
+  }
+
+  async createEquipe(equipe: any): Promise<any> {
+    return this.request<any>('/api/equipes', {
+      method: 'POST',
+      body: JSON.stringify(equipe),
+    });
+  }
+
+  async updateEquipe(id: string, equipe: any): Promise<any> {
+    return this.request<any>(`/api/equipes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(equipe),
+    });
+  }
+
+  async deleteEquipe(id: string): Promise<void> {
+    return this.request<void>(`/api/equipes/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Views Otimizadas (Reais do Banco)
   async getMilitaresRestricoes(): Promise<any[]> {
     return this.request<any[]>('/api/vw/militares-restricoes');
@@ -212,6 +237,24 @@ class ApiService {
 
   async getLogsRecentes(): Promise<any[]> {
     return this.request<any[]>('/api/vw/logs-recentes');
+  }
+
+  // Componentes da Equipe (Guarnição)
+  async getComponentesEquipe(idEquipe: string | number): Promise<any[]> {
+    return this.request<any[]>(`/api/equipes/componentes/${idEquipe}`);
+  }
+
+  async addComponenteEquipe(data: { id_equipe: string | number, id_chamada_militar: string, id_turno: string }): Promise<any> {
+    return this.request<any>('/api/equipes/componentes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteComponenteEquipe(idComponente: string): Promise<void> {
+    return this.request<void>(`/api/equipes/componentes/${idComponente}`, {
+      method: 'DELETE',
+    });
   }
 
   // Atestados Médicos

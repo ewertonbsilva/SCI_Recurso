@@ -20,7 +20,21 @@ export async function initializeDatabase(): Promise<mysql.Connection> {
             password: process.env.DB_PASSWORD || ''
         });
 
-        console.log('✅ Conectado ao banco de dados MySQL');
+        // Tabela de Componentes da Equipe (Guearnição)
+        await connection.query(`
+      CREATE TABLE IF NOT EXISTS componentes_equipe (
+        id_componente VARCHAR(36) PRIMARY KEY,
+        id_equipe VARCHAR(36) NOT NULL,
+        id_chamada_militar VARCHAR(36) NOT NULL,
+        id_turno VARCHAR(36) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (id_equipe) REFERENCES equipes(id_equipe) ON DELETE CASCADE,
+        FOREIGN KEY (id_chamada_militar) REFERENCES chamada_militar(id_chamada_militar) ON DELETE CASCADE,
+        FOREIGN KEY (id_turno) REFERENCES turnos(id_turno) ON DELETE CASCADE
+      )
+    `);
+
+        console.log('✅ Banco de dados inicializado com sucesso');
         return connection;
     } catch (error) {
         console.error('❌ Erro ao conectar ao banco de dados:', error);

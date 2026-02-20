@@ -20,6 +20,26 @@ export enum StatusEquipe {
   PAUSA_OPERACIONAL = 'pausa-operacional'
 }
 
+export interface Equipe {
+  id_equipe: string;
+  id_turno: string;
+  id_chamada_militar?: string;
+  id_chamada_civil?: string;
+  nome_equipe: string;
+  status: StatusEquipe;
+  total_efetivo: number;
+  bairro?: string;
+  created_at: string;
+  updated_at: string;
+  turno_data?: string;
+  turno_periodo?: string;
+  matricula_militar?: string;
+  nome_militar?: string;
+  quant_civil?: number;
+  nome_motorista?: string;
+  vtr_modelo?: string;
+}
+
 export enum FORCAS {
   CBMAC = 'CBMAC',
   PMAC = 'PMAC',
@@ -78,32 +98,32 @@ export enum UBMS {
 }
 
 export enum ALFABETO_FONETICO {
-  A = 'A',
-  B = 'B',
-  C = 'C',
-  D = 'D',
-  E = 'E',
-  F = 'F',
-  G = 'G',
-  H = 'H',
-  I = 'I',
-  J = 'J',
-  K = 'K',
-  L = 'L',
-  M = 'M',
-  N = 'N',
-  O = 'O',
-  P = 'P',
-  Q = 'Q',
-  R = 'R',
-  S = 'S',
-  T = 'T',
-  U = 'U',
-  V = 'V',
-  W = 'W',
-  X = 'X',
-  Y = 'Y',
-  Z = 'Z'
+  ALPHA = 'Alpha',
+  BRAVO = 'Bravo',
+  CHARLIE = 'Charlie',
+  DELTA = 'Delta',
+  ECHO = 'Echo',
+  FOXTROT = 'Foxtrot',
+  GOLF = 'Golf',
+  HOTEL = 'Hotel',
+  INDIA = 'India',
+  JULIET = 'Juliet',
+  KILO = 'Kilo',
+  LIMA = 'Lima',
+  MIKE = 'Mike',
+  NOVEMBER = 'November',
+  OSCAR = 'Oscar',
+  PAPA = 'Papa',
+  QUEBEC = 'Quebec',
+  ROMEO = 'Romeo',
+  SIERRA = 'Sierra',
+  TANGO = 'Tango',
+  UNIFORM = 'Uniform',
+  VICTOR = 'Victor',
+  WHISKEY = 'Whiskey',
+  XRAY = 'X-Ray',
+  YANKEE = 'Yankee',
+  ZULU = 'Zulu'
 }
 
 export interface User {
@@ -169,6 +189,7 @@ export interface Turno {
   id_turno: string;
   data: string;
   periodo: Periodo;
+  total_equipes?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -186,12 +207,9 @@ export interface ChamadaCivil {
   id_chamada_civil: string;
   id_turno: string;
   id_civil: string;
-  nome_equipe?: string;
   quant_civil: number;
-  status: StatusEquipe;
-  matricula_chefe?: string;
-  bairro?: string;
-  last_status_update: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface LogOperacional {

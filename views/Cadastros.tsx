@@ -5,6 +5,22 @@ import { CadastroCivil, CadastroMilitar, AtestadoMedico, PostoGrad, Forca, Orgao
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
 
+// Função para obter cores do tema atual (fora do componente)
+const getThemeColors = () => {
+  const root = document.documentElement;
+  const theme = root.getAttribute('data-theme') || 'default';
+  
+  const themeColors: Record<string, { primary: string; primaryHover: string; rgb: string }> = {
+    default: { primary: '#3b82f6', primaryHover: '#2563eb', rgb: '59, 130, 246' },
+    ocean: { primary: '#0ea5e9', primaryHover: '#0284c7', rgb: '14, 165, 233' },
+    forest: { primary: '#10b981', primaryHover: '#059669', rgb: '16, 185, 129' },
+    crimson: { primary: '#dc2626', primaryHover: '#b91c1c', rgb: '220, 38, 38' },
+    indigo: { primary: '#4f46e5', primaryHover: '#4338ca', rgb: '79, 70, 229' }
+  };
+  
+  return themeColors[theme] || themeColors.default;
+};
+
 interface CadastrosProps {
   onNotify?: (msg: string, type: ToastType) => void;
 }
@@ -58,7 +74,7 @@ const getMilitarActiveAtestado = (matricula: string, atestados: AtestadoMedico[]
   });
 };
 
-const MilitarHoverCard: React.FC<{ militar: CadastroMilitar, atestados: AtestadoMedico[] }> = ({ militar, atestados }) => {
+const MilitarCard: React.FC<{ militar: CadastroMilitar, atestados: AtestadoMedico[], themeColors: any }> = ({ militar, atestados, themeColors }) => {
   const activeAtestado = getMilitarActiveAtestado(militar.matricula, atestados);
   const restricted = isMilitarRestricted(militar, atestados);
 
@@ -82,7 +98,7 @@ const MilitarHoverCard: React.FC<{ militar: CadastroMilitar, atestados: Atestado
             <Ship size={16} />
             <span className="font-bold">CPOE</span>
           </div>
-          <div className={`flex items-center gap-2 p-3 rounded-2xl border ${militar.mergulhador ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30 text-blue-700' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-400'}`}>
+          <div className={`flex items-center gap-2 p-3 rounded-2xl border ${militar.mergulhador ? 'border-blue-100 dark:border-blue-900/30' : 'border-slate-100 dark:border-slate-800'}`} style={{ backgroundColor: militar.mergulhador ? themeColors.primary + '10' : 'rgb(248 250 251)', color: militar.mergulhador ? themeColors.primary : 'rgb(148 163 184)' }}>
             <Waves size={16} />
             <span className="font-bold">CMAUT</span>
           </div>
@@ -142,8 +158,41 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'militar' | 'civil' | 'atestado'>('militar');
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
+  const [themeColors, setThemeColors] = useState(getThemeColors());
 
+  // Monitorar mudanças no tema
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setThemeColors(getThemeColors());
+    };
+
+    // Observer para mudanças no atributo data-theme
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+          handleThemeChange();
+        }
+      });
+    });
+
+    // Observer para mudanças no localStorage (tema salvo)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'sci_ui_theme') {
+        handleThemeChange();
+      }
+    };
+
+    // Iniciar observers
+    observer.observe(document.documentElement, { attributes: true });
+    window.addEventListener('storage', handleStorageChange);
+
+    // Cleanup
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   useEffect(() => {
     loadDadosFromAPI();
@@ -546,14 +595,14 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">Recursos <span className="text-blue-600">Base</span></h2>
+          <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">Recursos <span style={{ color: themeColors.primary }}>Base</span></h2>
           <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Gestão e prontuário de pessoal.</p>
         </div>
 
         <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm w-fit self-start">
-          <button onClick={() => { setActiveSubTab('militar'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'militar' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}>Militares</button>
-          <button onClick={() => { setActiveSubTab('civil'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'civil' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}>Civis</button>
-          <button onClick={() => { setActiveSubTab('atestado'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'atestado' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}>Atestados</button>
+          <button onClick={() => { setActiveSubTab('militar'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'militar' ? 'text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`} style={{ backgroundColor: activeSubTab === 'militar' ? themeColors.primary : 'transparent' }}>Militares</button>
+          <button onClick={() => { setActiveSubTab('civil'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'civil' ? 'text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`} style={{ backgroundColor: activeSubTab === 'civil' ? themeColors.primary : 'transparent' }}>Civis</button>
+          <button onClick={() => { setActiveSubTab('atestado'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'atestado' ? 'text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`} style={{ backgroundColor: activeSubTab === 'atestado' ? themeColors.primary : 'transparent' }}>Atestados</button>
         </div>
       </div>
 
@@ -562,7 +611,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
           <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm sticky top-8">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-xl font-black uppercase tracking-tighter">
-                {activeSubTab === 'atestado' ? 'Lançar' : (editingId ? 'Editar' : 'Novo')} <span className="text-blue-600">{activeSubTab === 'militar' ? 'Militar' : activeSubTab === 'civil' ? 'Civil' : 'Atestado'}</span>
+                {activeSubTab === 'atestado' ? 'Lançar' : (editingId ? 'Editar' : 'Novo')} <span style={{ color: themeColors.primary }}>{activeSubTab === 'militar' ? 'Militar' : activeSubTab === 'civil' ? 'Civil' : 'Atestado'}</span>
               </h3>
               {editingId && <button onClick={cancelEdit} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:text-red-500 transition-colors"><X size={16} /></button>}
             </div>
@@ -632,7 +681,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Motivo / CID</label>
                   <input value={atestadoForm.motivo} onChange={e => setAtestadoForm({ ...atestadoForm, motivo: e.target.value })} required placeholder="Ex: CID M54.5" className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
                 </div>
-                <button type="submit" className="w-full bg-red-600 text-white py-4 rounded-[1.5rem] flex items-center justify-center gap-2 hover:bg-red-700 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-red-500/20"><Plus size={18} /> Registrar Atestado</button>
+                <button type="submit" className="w-full text-white py-4 rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}><Plus size={18} /> Registrar Atestado</button>
               </form>
             ) : (
               <form onSubmit={activeSubTab === 'militar' ? handleSaveMilitar : handleSaveCivil} className="space-y-5">
@@ -702,16 +751,16 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                     </div>
                     <div className="flex gap-4 p-4 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800/50">
                       <label className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={militarForm.cpoe} onChange={e => setMilitarForm({ ...militarForm, cpoe: e.target.checked })} className="w-4 h-4 rounded-lg accent-blue-600" />
-                        <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-600">CPOE</span>
+                        <input type="checkbox" checked={militarForm.cpoe} onChange={e => setMilitarForm({ ...militarForm, cpoe: e.target.checked })} className="w-4 h-4 rounded-lg" style={{ accentColor: '#10b981' }} />
+                        <span className="text-[10px] font-bold text-slate-500 group-hover:text-emerald-600">CPOE</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={militarForm.mergulhador} onChange={e => setMilitarForm({ ...militarForm, mergulhador: e.target.checked })} className="w-4 h-4 rounded-lg accent-blue-600" />
-                        <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-600">CMAUT</span>
+                        <input type="checkbox" checked={militarForm.mergulhador} onChange={e => setMilitarForm({ ...militarForm, mergulhador: e.target.checked })} className="w-4 h-4 rounded-lg" style={{ accentColor: themeColors.primary }} />
+                        <span className="text-[10px] font-bold text-slate-500" style={{ color: themeColors.primary }}>CMAUT</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <input type="checkbox" checked={militarForm.restricao_medica} onChange={(e) => { setMilitarForm({ ...militarForm, restricao_medica: e.target.checked }) }} className="w-4 h-4 rounded-lg accent-red-600" />
-                        <span className="text-[10px] font-bold text-red-500">RESTRIÇÃO</span>
+                        <span className="text-[10px] font-bold text-slate-500 group-hover:text-red-600">Restrição Médica</span>
                       </label>
                     </div>
                     {militarForm.restricao_medica && (
@@ -771,7 +820,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                     </div>
                   </>
                 )}
-                <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-[1.5rem] flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-blue-500/20">{editingId ? <Edit2 size={18} /> : <Plus size={18} />} {editingId ? 'Atualizar' : 'Salvar'} Cadastro</button>
+                <button type="submit" className="w-full text-white py-4 rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}>{editingId ? <Edit2 size={18} /> : <Plus size={18} />} {editingId ? 'Atualizar' : 'Salvar'} Cadastro</button>
               </form>
             )}
           </div>
@@ -779,14 +828,14 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
 
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group">
-            <Search className="text-slate-400 group-focus-within:text-blue-500 transition-colors ml-4" size={20} />
+            <Search className="text-slate-400 transition-colors ml-4" size={20} style={{ color: themeColors.primary }} />
             <input placeholder="Filtre por nome, matrícula ou unidade..." className="bg-transparent border-none focus:ring-0 w-full outline-none text-sm font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-visible">
             {loading ? (
               <div className="py-20 text-center text-slate-400 font-medium">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: themeColors.primary }}></div>
                 Carregando dados do banco de dados...
               </div>
             ) : (
@@ -811,7 +860,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                                 <Info size={12} className="text-slate-300 group-hover:text-blue-500 ml-1" title={`Força: ${m.nome_forca || 'N/A'} • UBM: ${m.nome_ubm || 'Sem UBM'}`} />
                               </div>
                               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{m.matricula} • {m.nome_forca || 'N/A'} • {m.nome_ubm || 'Sem UBM'}</div>
-                              <MilitarHoverCard militar={m} atestados={atestados} />
+                              <MilitarCard militar={m} atestados={atestados} themeColors={themeColors} />
                             </td>
                             <td className="px-8 py-5 text-center">
                               <div className="flex justify-center gap-1.5">
@@ -822,7 +871,7 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                             </td>
                             <td className="px-8 py-5 text-right">
                               <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditMilitar(m); }} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all"><Edit2 size={18} /></button>
+                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditMilitar(m); }} className="p-2 text-slate-300 rounded-xl transition-all" style={{ color: themeColors.primary }}><Edit2 size={18} /></button>
                                 <button onClick={(e) => removeMilitar(e, m.matricula)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"><Trash2 size={18} /></button>
                               </div>
                             </td>
@@ -841,12 +890,12 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
                           <td className="px-8 py-5 text-center">
                             <div className="flex flex-wrap justify-center gap-2">
                               {c.motorista && <UserCheck size={16} className="text-emerald-500" />}
-                              {c.modelo_veiculo && <span className="text-[10px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full uppercase tracking-tighter">{c.modelo_veiculo}</span>}
+                              {c.modelo_veiculo && <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter" style={{ backgroundColor: `${themeColors.primary}10`, color: themeColors.primary }}>{c.modelo_veiculo}</span>}
                             </div>
                           </td>
                           <td className="px-8 py-5 text-right">
                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditCivil(c); }} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all"><Edit2 size={18} /></button>
+                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditCivil(c); }} className="p-2 text-slate-300 rounded-xl transition-all" style={{ color: themeColors.primary }}><Edit2 size={18} /></button>
                               <button onClick={(e) => removeCivil(e, c.id_civil)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"><Trash2 size={18} /></button>
                             </div>
                           </td>

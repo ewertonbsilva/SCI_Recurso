@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Truck,
   Plus,
@@ -16,9 +15,10 @@ import {
   ArrowLeft,
   Users,
   UserPlus,
-  Type
+  Type,
+  UserCheck
 } from 'lucide-react';
-import { ChamadaCivil, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO } from '../types';
+import { Equipe, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
 
@@ -28,24 +28,31 @@ interface GestaoEquipesProps {
 
 const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   const [turnos, setTurnos] = useState<Turno[]>([]);
-  const [chamadaCivil, setChamadaCivil] = useState<ChamadaCivil[]>([]);
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [chamadaMilitar, setChamadaMilitar] = useState<any[]>([]);
+  const [chamadaCivil, setChamadaCivil] = useState<any[]>([]);
   const [militares, setMilitares] = useState<any[]>([]);
   const [civis, setCivis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTurnoId, setSelectedTurnoId] = useState('');
-  const [isVtrMenuOpen, setIsVtrMenuOpen] = useState(false);
-  const [isMilitarModalOpen, setIsMilitarModalOpen] = useState<{ open: boolean, idEquipe: string | null }>({ open: false, idEquipe: null });
+
+  // Modais de atribuição
+  const [isChefeModalOpen, setIsChefeModalOpen] = useState<{ open: boolean, idEquipe: string | null }>({ open: false, idEquipe: null });
+  const [isMotoristaModalOpen, setIsMotoristaModalOpen] = useState<{ open: boolean, idEquipe: string | null }>({ open: false, idEquipe: null });
+  const [isComponenteModalOpen, setIsComponenteModalOpen] = useState<{ open: boolean, idEquipe: string | null }>({ open: false, idEquipe: null });
+
   const [militarSearch, setMilitarSearch] = useState('');
-  const [vtrSearch, setVtrSearch] = useState('');
+  const [civilSearch, setCivilSearch] = useState('');
+  const [componentesEquipe, setComponentesEquipe] = useState<{ [idEquipe: string]: any[] }>({});
 
   const modalRef = useRef<HTMLDivElement>(null);
+  const debounceTimerRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        setIsMilitarModalOpen({ open: false, idEquipe: null });
-        setIsVtrMenuOpen(false);
+        setIsChefeModalOpen({ open: false, idEquipe: null });
+        setIsMotoristaModalOpen({ open: false, idEquipe: null });
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -53,10 +60,10 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   }, []);
 
   useEffect(() => {
-    loadDadosFromAPI();
+    loadDadosBase();
   }, []);
 
-  const loadDadosFromAPI = async () => {
+  const loadDadosBase = async () => {
     try {
       setLoading(true);
       const [turnosData, militaresData, civisData] = await Promise.all([
@@ -67,13 +74,9 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
       setTurnos(turnosData);
       setMilitares(militaresData);
       setCivis(civisData);
-
-      if (selectedTurnoId) {
-        loadTurnoSpecificData(selectedTurnoId);
-      }
     } catch (error) {
-      console.error('Erro ao carregar dados de gestão:', error);
-      onNotify?.('Erro ao carregar dados do banco de dados', 'error');
+      console.error('Erro ao carregar dados base:', error);
+      onNotify?.('Erro ao carregar dados do sistema', 'error');
     } finally {
       setLoading(false);
     }
@@ -81,14 +84,25 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
 
   const loadTurnoSpecificData = async (idTurno: string) => {
     try {
-      const [ccData, cmData] = await Promise.all([
-        apiService.getChamadaCivil(idTurno),
-        apiService.getChamadaMilitar(idTurno)
+      const [equipesData, cmData, ccData] = await Promise.all([
+        apiService.getEquipes(idTurno),
+        apiService.getChamadaMilitar(idTurno),
+        apiService.getChamadaCivil(idTurno)
       ]);
-      setChamadaCivil(ccData);
+      setEquipes(equipesData);
       setChamadaMilitar(cmData);
+      setChamadaCivil(ccData);
+
+      // Carregar componentes para cada equipe
+      const componentesPromises = equipesData.map(e => apiService.getComponentesEquipe(e.id_equipe));
+      const componentesResults = await Promise.all(componentesPromises);
+      const componentesMap: { [id: string]: any[] } = {};
+      equipesData.forEach((e, idx) => {
+        componentesMap[e.id_equipe] = componentesResults[idx];
+      });
+      setComponentesEquipe(componentesMap);
     } catch (error) {
-      console.error('Erro ao carregar chamadas:', error);
+      console.error('Erro ao carregar dados do turno:', error);
     }
   };
 
@@ -98,59 +112,180 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     }
   }, [selectedTurnoId]);
 
-  const turno = turnos.find(t => t.id_turno === selectedTurnoId);
-  const equipesNoTurno = chamadaCivil;
+  const updateEquipeData = async (id: string, updates: Partial<Equipe>, immediate = true) => {
+    // Atualiza o estado local imediatamente para feedback instantâneo
+    setEquipes(prev => prev.map(e => e.id_equipe === id ? { ...e, ...updates } : e));
 
-  const militaresDisponiveis = chamadaMilitar
-    .filter(cm => cm.presenca && cm.funcao === FuncaoMilitar.COMBATENTE)
-    .filter(cm => !chamadaCivil.some(cc => cc.matricula_chefe === cm.matricula));
+    if (immediate) {
+      try {
+        await apiService.updateEquipe(id, updates);
+      } catch (error) {
+        onNotify?.("Erro ao salvar alterações.", "error");
+      }
+    } else {
+      // Debounce para campos de texto
+      if (debounceTimerRef.current[id]) {
+        clearTimeout(debounceTimerRef.current[id]);
+      }
+      debounceTimerRef.current[id] = setTimeout(async () => {
+        try {
+          await apiService.updateEquipe(id, updates);
+        } catch (error) {
+          onNotify?.("Erro ao salvar alterações.", "error");
+        }
+        delete debounceTimerRef.current[id];
+      }, 800);
+    }
+  };
 
-  const updateEquipe = async (id: string, updates: Partial<ChamadaCivil>) => {
+  const handleAddEquipe = async () => {
+    const alphabet = Object.values(ALFABETO_FONETICO);
+    const nextIndex = equipes.length;
+    const cycle = Math.floor(nextIndex / alphabet.length);
+    const letterIndex = nextIndex % alphabet.length;
+
+    // Helper para numerais romanos simples (para os ciclos)
+    const getRoman = (n: number) => {
+      if (n <= 0) return '';
+      const romans = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+      return romans[n] || n.toString();
+    };
+
+    const suffix = cycle > 0 ? ` ${getRoman(cycle + 1)}` : '';
+    const teamName = `${alphabet[letterIndex]}${suffix}`;
+
+    const newEquipe = {
+      id_turno: selectedTurnoId,
+      nome_equipe: teamName,
+      status: StatusEquipe.LIVRE,
+      total_efetivo: 0,
+      bairro: ''
+    };
+
     try {
-      if (updates.status) updates.last_status_update = Date.now();
-      await apiService.updateChamadaCivil(id, updates);
-      setChamadaCivil(prev => prev.map(cc => cc.id_chamada_civil === id ? { ...cc, ...updates } : cc));
+      await apiService.createEquipe(newEquipe);
+      await loadTurnoSpecificData(selectedTurnoId);
+      onNotify?.("Equipe criada com sucesso!", "success");
     } catch (error) {
-      onNotify?.("Erro ao atualizar equipe.", "error");
+      onNotify?.("Erro ao criar equipe.", "error");
     }
   };
 
   const removeEquipe = async (id: string) => {
+    if (!window.confirm("Deseja realmente remover esta equipe?")) return;
     try {
-      await apiService.deleteChamadaCivil(id);
-      setChamadaCivil(prev => prev.filter(cc => cc.id_chamada_civil !== id));
+      await apiService.deleteEquipe(id);
+      setEquipes(prev => prev.filter(e => e.id_equipe !== id));
       onNotify?.("Equipe removida.", "warning");
     } catch (error) {
       onNotify?.("Erro ao remover equipe.", "error");
     }
   };
 
-  const getNextPhoneticName = () => {
-    const usedNames = chamadaCivil.map(c => c.nome_equipe);
-    const availableNames = Object.values(ALFABETO_FONETICO).filter(name => !usedNames.includes(name));
-    return availableNames[0] || Object.values(ALFABETO_FONETICO)[0];
+  const handleAssignChefe = async (idEquipe: string | null, matricula: string) => {
+    if (!idEquipe) return;
+    try {
+      const chamMilitar = chamadaMilitar.find(cm => cm.matricula === matricula);
+      if (chamMilitar) {
+        await apiService.updateEquipe(idEquipe, { id_chamada_militar: chamMilitar.id_chamada_militar });
+        await loadTurnoSpecificData(selectedTurnoId);
+        setIsChefeModalOpen({ open: false, idEquipe: null });
+        onNotify?.("Chefe atribuído!", "success");
+      } else {
+        onNotify?.("Militar não está escalado neste turno.", "error");
+      }
+    } catch (error) {
+      onNotify?.("Erro ao atribuir chefe.", "error");
+    }
   };
 
-  const handleAddVtr = async (id_civil: string) => {
-    const nextName = getNextPhoneticName();
-    const newEntry: ChamadaCivil = {
-      id_chamada_civil: crypto.randomUUID(),
-      id_turno: selectedTurnoId,
-      id_civil: id_civil,
-      nome_equipe: nextName,
-      quant_civil: 1,
-      status: StatusEquipe.LIVRE,
-      last_status_update: Date.now(),
-      bairro: ''
-    };
-
+  const handleAssignMotorista = async (idEquipe: string | null, idCivil: string) => {
+    if (!idEquipe) return;
     try {
-      await apiService.createChamadaCivil(newEntry);
-      setChamadaCivil(prev => [...prev, newEntry]);
-      setIsVtrMenuOpen(false);
-      onNotify?.(`Equipe ${nextName} adicionada!`, "success");
+      let chamCivil = chamadaCivil.find(cc => cc.id_civil === idCivil);
+
+      if (!chamCivil) {
+        const id_chamada_civil = crypto.randomUUID ? crypto.randomUUID() : `cc_${Date.now()}`;
+        const newCC = {
+          id_chamada_civil,
+          id_turno: selectedTurnoId,
+          id_civil: idCivil,
+          quant_civil: 1
+        };
+        await apiService.createChamadaCivil(newCC);
+        // Recarregar os dados para pegar o ID correto e o join do motorista
+        await loadTurnoSpecificData(selectedTurnoId);
+        chamCivil = { id_chamada_civil }; // Dummy para o próximo passo
+      }
+
+      // Agora atualiza a equipe com o id_chamada_civil (seja o novo ou o existente)
+      // Buscamos novamente o chamCivil para garantir que temos o id_chamada_civil atualizado
+      const freshCC = (await apiService.getChamadaCivil(selectedTurnoId)).find(cc => cc.id_civil === idCivil);
+
+      if (freshCC) {
+        await apiService.updateEquipe(idEquipe, { id_chamada_civil: freshCC.id_chamada_civil });
+        await loadTurnoSpecificData(selectedTurnoId);
+        setIsMotoristaModalOpen({ open: false, idEquipe: null });
+        onNotify?.("Motorista atribuído!", "success");
+      }
     } catch (error) {
-      onNotify?.("Erro ao adicionar equipe.", "error");
+      console.error('Erro ao atribuir motorista:', error);
+      onNotify?.("Erro ao atribuir motorista.", "error");
+    }
+  };
+
+  const handleAddComponente = async (idEquipe: string | null, id_chamada_militar: string) => {
+    if (!idEquipe) return;
+    try {
+      await apiService.addComponenteEquipe({
+        id_equipe: idEquipe,
+        id_chamada_militar,
+        id_turno: selectedTurnoId
+      });
+      await loadTurnoSpecificData(selectedTurnoId);
+      setIsComponenteModalOpen({ open: false, idEquipe: null });
+      onNotify?.("Integrante adicionado!", "success");
+    } catch (error) {
+      onNotify?.("Erro ao adicionar integrante.", "error");
+    }
+  };
+
+  const handleRemoveComponente = async (idComponente: string) => {
+    try {
+      await apiService.deleteComponenteEquipe(idComponente);
+      await loadTurnoSpecificData(selectedTurnoId);
+      onNotify?.("Integrante removido.", "success");
+    } catch (error) {
+      onNotify?.("Erro ao remover integrante.", "error");
+    }
+  };
+
+  const calculateTotalEfetivo = (equipe: Equipe) => {
+    let total = 0;
+    // Chefe conta como 1
+    if (equipe.id_chamada_militar) total += 1;
+    // Motorista e auxiliares civis
+    if (equipe.id_chamada_civil) {
+      // 1 (Motorista) + quant_civil (Auxiliares/Civis adicionais)
+      total += 1 + (equipe.quant_civil || 0);
+    }
+    // Componentes da Guarnição (Militares)
+    const componentes = componentesEquipe[equipe.id_equipe] || [];
+    total += componentes.length;
+
+    return total;
+  };
+
+  const getStatusConfig = (status: StatusEquipe) => {
+    switch (status) {
+      case StatusEquipe.LIVRE:
+        return { color: 'bg-emerald-500', icon: <Check size={16} />, label: 'Livre' };
+      case StatusEquipe.EMPENHADA:
+        return { color: 'bg-amber-500', icon: <Activity size={16} />, label: 'Empenhada' };
+      case StatusEquipe.PAUSA_OPERACIONAL:
+        return { color: 'bg-slate-500', icon: <Clock size={16} />, label: 'Pausa' };
+      default:
+        return { color: 'bg-emerald-500', icon: <Check size={16} />, label: 'Livre' };
     }
   };
 
@@ -165,130 +300,75 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {turnos.sort((a, b) => b.data.localeCompare(a.data)).map((t) => {
-            const count = 0; // Temporário, ou buscar do backend se necessário
-            return (
-              <button
-                key={t.id_turno}
-                onClick={() => setSelectedTurnoId(t.id_turno)}
-                className="group relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:scale-[1.03] transition-all text-left overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20 group-hover:opacity-100 transition-opacity"></div>
+          {turnos.sort((a, b) => b.data.localeCompare(a.data)).map((t) => (
+            <button
+              key={t.id_turno}
+              onClick={() => setSelectedTurnoId(t.id_turno)}
+              className="group relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:scale-[1.03] transition-all text-left overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20 group-hover:opacity-100 transition-opacity"></div>
 
-                <div className="flex justify-between items-start mb-6">
-                  <div className={`p-4 rounded-2xl ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}>
-                    <Clock size={24} />
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Equipes</p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white text-center leading-none mt-1">{count}</p>
-                  </div>
+              <div className="flex justify-between items-start mb-6">
+                <div className={`p-4 rounded-2xl ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}>
+                  <Clock size={24} />
                 </div>
-
-                <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-1">
-                  {new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-                </p>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{t.periodo}</p>
-
-                <div className="mt-8 flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
-                  Configurar Dispositivo <ChevronRight size={14} />
+                <div className="bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl text-center">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Equipes</p>
+                  <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">
+                    {t.total_equipes || 0}
+                  </p>
                 </div>
-              </button>
-            );
-          })}
+              </div>
 
-          {turnos.length === 0 && (
-            <div className="col-span-full py-24 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem]">
-              <Calendar className="mx-auto text-slate-200 mb-4" size={48} />
-              <p className="text-slate-400 font-black uppercase tracking-widest">Nenhum turno cadastrado.</p>
-              <p className="text-slate-300 text-xs mt-1 italic">Crie um turno na aba "Gestão de Turnos" primeiro.</p>
-            </div>
-          )}
+              <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-1">
+                {new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+              </p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{t.periodo}</p>
+            </button>
+          ))}
         </div>
       </div>
     );
   }
 
+  const currentTurno = turnos.find(t => t.id_turno === selectedTurnoId);
+
   return (
     <div className="space-y-8 page-transition">
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 text-black dark:text-white">
           <button
             onClick={() => setSelectedTurnoId('')}
             className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-primary transition-all"
-            title="Mudar Turno"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-3xl font-black tracking-tighter uppercase text-slate-900 dark:text-white flex items-center gap-3">
-              <div className="p-3 bg-primary rounded-2xl text-white shadow-lg shadow-blue-500/20">
-                <Truck size={24} />
-              </div>
-              Dispositivo <span className="text-primary">{turno?.periodo}</span>
+            <h2 className="text-2xl font-black tracking-tighter uppercase">
+              Gerenciamento de <span className="text-primary font-black">Equipes</span>
             </h2>
-            <p className="text-xs text-slate-400 font-black uppercase tracking-widest mt-2 ml-14">
-              {new Date(turno!.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} • Operação Ativa
+            <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
+              {currentTurno ? `${new Date(currentTurno.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} • ${currentTurno.periodo}` : ''}
             </p>
           </div>
         </div>
-
-        <div className="relative w-full lg:w-auto">
-          <button
-            onClick={() => setIsVtrMenuOpen(!isVtrMenuOpen)}
-            className="w-full bg-slate-900 dark:bg-primary text-white px-8 py-4 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.15em] hover:scale-105 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2"
-          >
-            <Plus size={18} /> Adicionar VTR
-          </button>
-
-          {isVtrMenuOpen && (
-            <div ref={modalRef} className="absolute right-0 mt-4 w-80 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-2xl rounded-[2rem] z-[100] p-4 animate-in fade-in zoom-in duration-200">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl mb-3">
-                <Search size={14} className="text-slate-400" />
-                <input
-                  placeholder="Filtrar veículos..."
-                  className="bg-transparent border-none text-[11px] font-bold outline-none w-full dark:text-white"
-                  value={vtrSearch}
-                  onChange={e => setVtrSearch(e.target.value)}
-                />
-              </div>
-              <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar">
-                {civis
-                  .filter(c => c.motorista && !equipesNoTurno.some(cc => cc.id_civil === c.id_civil))
-                  .filter(c => (c.modelo_veiculo || '').toLowerCase().includes(vtrSearch.toLowerCase()) || (c.placa_veiculo || '').toLowerCase().includes(vtrSearch.toLowerCase()))
-                  .map(c => (
-                    <button
-                      key={c.id_civil}
-                      onClick={() => handleAddVtr(c.id_civil)}
-                      className="w-full p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-all group"
-                    >
-                      <p className="font-black text-xs text-slate-800 dark:text-white uppercase truncate">{c.modelo_veiculo || 'Sem Modelo'}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{c.placa_veiculo} • {c.nome_completo}</p>
-                    </button>
-                  ))}
-                {civis.filter(c => c.motorista && !equipesNoTurno.some(cc => cc.id_civil === c.id_civil)).length === 0 && (
-                  <p className="text-center py-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">Nenhuma VTR disponível</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={handleAddEquipe}
+          className="group flex items-center justify-center gap-3 bg-primary text-white px-8 py-4 rounded-[2rem] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 font-black text-sm uppercase"
+        >
+          <Plus size={18} />
+          Nova Equipe
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-        {equipesNoTurno.map(cc => {
-          const civil = civis.find(c => c.id_civil === cc.id_civil);
-          const chefe = militares.find(m => m.matricula === cc.matricula_chefe);
-
-          const statusColors = {
-            [StatusEquipe.LIVRE]: 'bg-emerald-500',
-            [StatusEquipe.EMPENHADA]: 'bg-amber-500',
-            [StatusEquipe.PAUSA_OPERACIONAL]: 'bg-slate-500',
-          };
+        {equipes.map((equipe) => {
+          const statusCfg = getStatusConfig(equipe.status);
+          const chefe = militares.find(m => m.matricula === equipe.matricula_militar);
 
           return (
-            <div key={cc.id_chamada_civil} className="group bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all flex flex-col overflow-hidden relative">
-              <div className={`absolute top-0 left-0 w-2 h-full ${statusColors[cc.status]}`}></div>
+            <div key={equipe.id_equipe} className="group bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all flex flex-col overflow-hidden relative">
+              <div className={`absolute top-0 left-0 w-2 h-full ${statusCfg.color}`}></div>
 
               <div className="p-6 pb-0 flex justify-between items-start ml-2">
                 <div className="flex items-center gap-3 flex-1 overflow-hidden">
@@ -297,17 +377,25 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <input
-                      value={cc.nome_equipe || ''}
-                      onChange={e => updateEquipe(cc.id_chamada_civil, { nome_equipe: e.target.value })}
                       placeholder="Nome da Equipe"
                       className="w-full bg-transparent border-none p-0 font-black text-lg text-slate-900 dark:text-white uppercase tracking-tighter leading-none outline-none focus:ring-0 placeholder:text-slate-300"
+                      value={equipe.nome_equipe}
+                      onChange={(e) => updateEquipeData(equipe.id_equipe, { nome_equipe: e.target.value }, false)}
                     />
-                    <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest truncate">
-                      {civil?.modelo_veiculo} • {civil?.placa_veiculo}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="bg-primary/10 text-primary text-[9px] px-2 py-0.5 rounded-full font-black uppercase">
+                        {calculateTotalEfetivo(equipe)} Integrantes
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest truncate">
+                        {equipe.vtr_modelo || 'VTR N/D'}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => removeEquipe(cc.id_chamada_civil)} className="p-2 text-slate-200 hover:text-red-500 transition-colors shrink-0">
+                <button
+                  onClick={() => removeEquipe(equipe.id_equipe)}
+                  className="p-2 text-slate-200 hover:text-red-500 transition-colors shrink-0"
+                >
                   <Trash2 size={18} />
                 </button>
               </div>
@@ -316,26 +404,22 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Chefe de Equipe</label>
                   {chefe ? (
-                    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl group/slot">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white text-xs font-black shadow-lg">
-                          {chefe.nome_guerra.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-black text-xs text-slate-900 dark:text-white uppercase">{chefe.nome_posto_grad} {chefe.nome_guerra}</p>
-                          <p className="text-[9px] text-primary font-bold">{chefe.matricula}</p>
-                        </div>
+                    <button
+                      onClick={() => setIsChefeModalOpen({ open: true, idEquipe: equipe.id_equipe })}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800/30 rounded-2xl flex items-center gap-3 border border-transparent hover:border-primary/20 transition-all text-left group/item"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-primary font-black text-xs border border-slate-100 dark:border-slate-800 shadow-sm">
+                        {chefe.nome_guerra.substring(0, 2).toUpperCase()}
                       </div>
-                      <button
-                        onClick={() => updateEquipe(cc.id_chamada_civil, { matricula_chefe: undefined })}
-                        className="p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover/slot:opacity-100"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-xs font-black text-slate-900 dark:text-white uppercase leading-tight truncate">{chefe.nome_posto_grad} {chefe.nome_guerra}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">{chefe.matricula}</p>
+                      </div>
+                      <ChevronRight className="text-slate-200 group-hover/item:text-primary transition-colors" size={16} />
+                    </button>
                   ) : (
                     <button
-                      onClick={() => setIsMilitarModalOpen({ open: true, idEquipe: cc.id_chamada_civil })}
+                      onClick={() => setIsChefeModalOpen({ open: true, idEquipe: equipe.id_equipe })}
                       className="w-full p-4 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/30 transition-all font-bold text-xs uppercase tracking-widest"
                     >
                       <UserPlus size={16} /> Atribuir Chefe
@@ -344,121 +428,281 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                      <User size={10} /> Motorista
-                    </p>
-                    <p className="font-bold text-[10px] text-slate-700 dark:text-slate-300 truncate">{civil?.nome_completo || 'N/A'}</p>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-left border border-transparent hover:border-primary/20 transition-all flex flex-col gap-2">
+                    <button
+                      onClick={() => setIsMotoristaModalOpen({ open: true, idEquipe: equipe.id_equipe })}
+                      className="text-left group/mot w-full"
+                    >
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1 group-hover/mot:text-primary transition-colors">
+                        <User size={10} /> Motorista
+                      </p>
+                      <p className="font-bold text-[10px] text-slate-700 dark:text-slate-300 truncate uppercase underline-offset-4 group-hover/mot:underline">
+                        {equipe.nome_motorista || 'Atribuir'}
+                      </p>
+                    </button>
+
+                    {equipe.id_chamada_civil && (
+                      <div className="flex items-center gap-2 mt-1 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+                        <Users size={10} className="text-primary" />
+                        <span className="text-[10px] font-black text-primary uppercase tracking-tight">
+                          {equipe.quant_civil || 0} Civis Auxiliares
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl flex flex-col justify-between border border-transparent hover:border-primary/10 transition-all shadow-sm">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                      <MapPin size={10} /> Setor
+                      <MapPin size={10} /> Setor de Atuação
                     </p>
                     <input
-                      value={cc.bairro || ''}
-                      onChange={e => updateEquipe(cc.id_chamada_civil, { bairro: e.target.value })}
                       placeholder="Não definido"
-                      className="bg-transparent border-none p-0 w-full font-black text-[10px] text-primary outline-none placeholder:text-slate-300"
+                      className="bg-transparent border-none p-0 w-full font-black text-[10px] text-primary outline-none focus:ring-0 placeholder:text-slate-300 uppercase"
+                      value={equipe.bairro || ''}
+                      onChange={(e) => updateEquipeData(equipe.id_equipe, { bairro: e.target.value }, false)}
                     />
+                  </div>
+                </div>
+
+                {/* Guarnição / Componentes */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center px-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Guarnição</label>
+                    <button
+                      onClick={() => setIsComponenteModalOpen({ open: true, idEquipe: equipe.id_equipe })}
+                      className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all"
+                    >
+                      <UserPlus size={14} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(componentesEquipe[equipe.id_equipe] || []).length > 0 ? (
+                      (componentesEquipe[equipe.id_equipe] || []).map((comp) => (
+                        <div key={comp.id_componente} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400 border border-slate-100 dark:border-slate-800">
+                              <User size={14} />
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase truncate">
+                              {comp.nome_posto_grad} {comp.nome_guerra}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveComponente(comp.id_componente)}
+                            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 border-2 border-dashed border-slate-50 dark:border-slate-800/50 rounded-2xl">
+                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Sem guarnição</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="p-6 pt-0 ml-2">
                 <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl">
-                  {[
-                    { id: StatusEquipe.LIVRE, icon: <Check size={16} />, color: 'bg-emerald-500', hover: 'hover:text-emerald-500', label: 'Livre' },
-                    { id: StatusEquipe.EMPENHADA, icon: <Activity size={16} />, color: 'bg-amber-500', hover: 'hover:text-amber-500', label: 'Empenhada' },
-                    { id: StatusEquipe.PAUSA_OPERACIONAL, icon: <Clock size={16} />, color: 'bg-slate-500', hover: 'hover:text-slate-500', label: 'Pausa' }
-                  ].map(st => (
-                    <button
-                      key={st.id}
-                      onClick={() => updateEquipe(cc.id_chamada_civil, { status: st.id })}
-                      className={`
-                        flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl transition-all
-                        ${cc.status === st.id
-                          ? `${st.color} text-white shadow-lg scale-105 font-black`
-                          : `text-slate-400 dark:text-slate-500 ${st.hover}`}
-                      `}
-                    >
-                      {st.icon}
-                      <span className="text-[8px] uppercase tracking-tighter font-bold">{st.label}</span>
-                    </button>
-                  ))}
+                  {([StatusEquipe.LIVRE, StatusEquipe.EMPENHADA, StatusEquipe.PAUSA_OPERACIONAL]).map((st) => {
+                    const cfg = getStatusConfig(st);
+                    const isActive = equipe.status === st;
+                    return (
+                      <button
+                        key={st}
+                        onClick={() => updateEquipeData(equipe.id_equipe, { status: st })}
+                        className={`
+                          flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl transition-all
+                          ${isActive
+                            ? `${cfg.color} text-white shadow-lg scale-105 font-black`
+                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}
+                        `}
+                      >
+                        {cfg.icon}
+                        <span className="text-[8px] uppercase tracking-tighter font-bold">{cfg.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           );
         })}
-
-        {equipesNoTurno.length === 0 && (
-          <div className="col-span-full py-32 text-center text-slate-400 font-black uppercase tracking-widest border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[3rem]">
-            Nenhuma equipe configurada para este turno.
-          </div>
-        )}
       </div>
 
-      {isMilitarModalOpen.open && (
+      {/* Modal Chefe */}
+      {isChefeModalOpen.open && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div ref={modalRef} className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[80vh] overflow-hidden">
-            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center text-black dark:text-white">
               <div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Escolher <span className="text-primary">Chefe</span></h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Combatentes Presentes no Turno</p>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Escolher <span className="text-primary font-black">Chefe</span></h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Militares Escalados</p>
               </div>
-              <button onClick={() => setIsMilitarModalOpen({ open: false, idEquipe: null })} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-red-500 transition-all">
+              <button onClick={() => setIsChefeModalOpen({ open: false, idEquipe: null })} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-red-500 transition-all">
                 <X size={20} />
               </button>
             </div>
-
             <div className="p-4 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
                 <Search size={18} className="text-slate-400" />
                 <input
-                  placeholder="Pesquisar disponível..."
-                  className="bg-transparent border-none text-sm font-bold outline-none w-full dark:text-white"
+                  placeholder="Pesquisar militar..."
+                  className="bg-transparent border-none text-sm font-bold outline-none w-full dark:text-white uppercase"
                   value={militarSearch}
                   onChange={e => setMilitarSearch(e.target.value)}
                 />
               </div>
             </div>
-
             <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
-              {militaresDisponiveis
+              {chamadaMilitar
                 .filter(cm => {
-                  const m = militares.find(mil => mil.matricula === cm.matricula);
-                  return m?.nome_guerra.toLowerCase().includes(militarSearch.toLowerCase()) || cm.matricula.includes(militarSearch);
+                  const searchTerm = militarSearch.toLowerCase();
+                  return cm.nome_guerra.toLowerCase().includes(searchTerm) || cm.matricula.includes(searchTerm);
                 })
-                .map(cm => {
-                  const m = militares.find(mil => mil.matricula === cm.matricula);
-                  return m ? (
-                    <button
-                      key={m.matricula}
-                      onClick={() => {
-                        if (isMilitarModalOpen.idEquipe) {
-                          updateEquipe(isMilitarModalOpen.idEquipe, { matricula_chefe: m.matricula });
-                        }
-                        setIsMilitarModalOpen({ open: false, idEquipe: null });
-                      }}
-                      className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-primary hover:shadow-lg transition-all text-left group"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-primary font-black text-sm border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-110 transition-transform">
-                        {m.nome_guerra.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-black text-xs text-slate-900 dark:text-white uppercase leading-tight">{m.nome_posto_grad} {m.nome_guerra}</p>
-                        <p className="text-[10px] text-slate-400 font-bold mt-1">{m.matricula}</p>
-                      </div>
-                      <ChevronRight className="ml-auto text-slate-200 group-hover:text-primary transition-colors" size={16} />
-                    </button>
-                  ) : null;
+                .filter(cm => {
+                  // Excluir militares que já são chefes de outra equipe (exceto a atual se já for ele)
+                  const isAssigned = equipes.some(e =>
+                    e.id_chamada_militar === cm.id_chamada_militar &&
+                    e.id_equipe !== isChefeModalOpen.idEquipe
+                  );
+                  return !isAssigned;
                 })
-              }
-              {militaresDisponiveis.length === 0 && (
-                <div className="col-span-full py-20 text-center text-slate-400 font-black uppercase tracking-widest text-xs">
-                  Nenhum combatente disponível
-                </div>
-              )}
+                .map(cm => (
+                  <button
+                    key={cm.matricula}
+                    onClick={() => handleAssignChefe(isChefeModalOpen.idEquipe, cm.matricula)}
+                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-primary hover:shadow-lg transition-all text-left group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-primary font-black text-sm border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-110 transition-transform">
+                      {cm.nome_guerra.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="font-black text-xs text-slate-900 dark:text-white uppercase leading-tight truncate">{cm.nome_posto_grad} {cm.nome_guerra}</p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">{cm.matricula}</p>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Motorista */}
+      {isMotoristaModalOpen.open && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div ref={modalRef} className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[80vh] overflow-hidden">
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center text-black dark:text-white">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Escolher <span className="text-primary font-black">Motorista</span></h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Civis Motoristas</p>
+              </div>
+              <button onClick={() => setIsMotoristaModalOpen({ open: false, idEquipe: null })} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-red-500 transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                <Search size={18} className="text-slate-400" />
+                <input
+                  placeholder="Pesquisar motorista..."
+                  className="bg-transparent border-none text-sm font-bold outline-none w-full dark:text-white uppercase"
+                  value={civilSearch}
+                  onChange={e => setCivilSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
+              {chamadaCivil
+                .filter(cc => {
+                  const searchTerm = civilSearch.toLowerCase();
+                  return cc.nome_completo.toLowerCase().includes(searchTerm) || cc.placa_veiculo?.toLowerCase().includes(searchTerm);
+                })
+                .filter(cc => {
+                  // Excluir motoristas que já estão em outra equipe
+                  const isAssigned = equipes.some(e =>
+                    e.id_chamada_civil === cc.id_chamada_civil &&
+                    e.id_equipe !== isMotoristaModalOpen.idEquipe
+                  );
+                  return !isAssigned;
+                })
+                .map(cc => (
+                  <button
+                    key={cc.id_civil}
+                    onClick={() => handleAssignMotorista(isMotoristaModalOpen.idEquipe, cc.id_civil)}
+                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-primary hover:shadow-lg transition-all text-left group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-primary font-black text-sm border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-110 transition-transform">
+                      {cc.nome_completo.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="font-black text-xs text-slate-900 dark:text-white uppercase leading-tight truncate">{cc.nome_completo}</p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase truncate">{cc.nome_orgao || 'Sem órgão'}</p>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Guarnição */}
+      {isComponenteModalOpen.open && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div ref={modalRef} className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[80vh] overflow-hidden">
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center text-black dark:text-white">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Adicionar à <span className="text-primary font-black">Guarnição</span></h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Militares Escalados</p>
+              </div>
+              <button onClick={() => setIsComponenteModalOpen({ open: false, idEquipe: null })} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-red-500 transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                <Search size={18} className="text-slate-400" />
+                <input
+                  placeholder="Pesquisar militar..."
+                  className="bg-transparent border-none text-sm font-bold outline-none w-full dark:text-white uppercase"
+                  value={militarSearch}
+                  onChange={e => setMilitarSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
+              {chamadaMilitar
+                .filter(cm => {
+                  const searchTerm = militarSearch.toLowerCase();
+                  return cm.nome_guerra.toLowerCase().includes(searchTerm) || cm.matricula.includes(searchTerm);
+                })
+                .filter(cm => {
+                  // Excluir militares que já estão em alguma equipe
+                  // 1. Checar se é chefe de alguma equipe
+                  const isChefe = equipes.some(e => e.id_chamada_militar === cm.id_chamada_militar);
+                  // 2. Checar se já é componente de alguma equipe
+                  const isComponente = (Object.values(componentesEquipe) as any[][]).some(list =>
+                    list.some(comp => comp.id_chamada_militar === cm.id_chamada_militar)
+                  );
+                  return !isChefe && !isComponente;
+                })
+                .map(cm => (
+                  <button
+                    key={cm.matricula}
+                    onClick={() => handleAddComponente(isComponenteModalOpen.idEquipe, cm.id_chamada_militar)}
+                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-primary hover:shadow-lg transition-all text-left group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-primary font-black text-sm border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-110 transition-transform">
+                      {cm.nome_guerra.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="font-black text-xs text-slate-900 dark:text-white uppercase leading-tight truncate">{cm.nome_posto_grad} {cm.nome_guerra}</p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">{cm.matricula}</p>
+                    </div>
+                  </button>
+                ))}
             </div>
           </div>
         </div>

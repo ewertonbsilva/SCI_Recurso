@@ -9,8 +9,8 @@ export const analyzeResources = async (data: {
     militares: any[];
     civis: any[];
     chamadas: {
-        civil: any[];
         militar: any[];
+        equipes: any[];
     };
 }) => {
     try {
@@ -21,7 +21,7 @@ export const analyzeResources = async (data: {
       - Total de Militares Cadastrados: ${data.militares.length}
       - Total de Recursos Civis (VTRs/Motoristas): ${data.civis.length}
       - Militares na Escala (Chamada): ${data.chamadas.militar.length}
-      - Equipes Civis Empenhadas: ${data.chamadas.civil.length}
+      - Total de Equipes Operacionais: ${data.chamadas.equipes.length}
 
       POR FAVOR, FORNEÇA:
       1. Uma breve análise da capacidade de resposta atual.
