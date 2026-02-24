@@ -4,6 +4,7 @@ import { ArrowLeft, Users, Shield, UserCircle, Download, UserPlus, Trash2, Check
 import { ChamadaMilitar, ChamadaCivil, FuncaoMilitar, StatusEquipe, CadastroMilitar, AtestadoMedico, Turno } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface TurnoDetalheProps {
   id_turno: string;
@@ -47,6 +48,7 @@ const getMilitarActiveAtestado = (matricula: string, atestados: AtestadoMedico[]
 };
 
 const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify }) => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [chamadaMilitar, setChamadaMilitar] = useState<ChamadaMilitar[]>([]);
   const [chamadaCivil, setChamadaCivil] = useState<ChamadaCivil[]>([]);
@@ -60,8 +62,13 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
 
 
   useEffect(() => {
-    loadDadosFromAPI();
-  }, [id_turno]);
+    // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
+    if (!authLoading && isAuthenticated) {
+      loadDadosFromAPI();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated, id_turno]);
 
   const loadDadosFromAPI = async () => {
     try {

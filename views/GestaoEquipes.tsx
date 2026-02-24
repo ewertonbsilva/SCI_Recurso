@@ -21,12 +21,14 @@ import {
 import { Equipe, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface GestaoEquipesProps {
   onNotify?: (msg: string, type: ToastType) => void;
 }
 
 const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [chamadaMilitar, setChamadaMilitar] = useState<any[]>([]);
@@ -60,8 +62,13 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   }, []);
 
   useEffect(() => {
-    loadDadosBase();
-  }, []);
+    // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
+    if (!authLoading && isAuthenticated) {
+      loadDadosBase();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   const loadDadosBase = async () => {
     try {
@@ -558,20 +565,35 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
               </div>
             </div>
             <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
-              {chamadaMilitar
-                .filter(cm => {
-                  const searchTerm = militarSearch.toLowerCase();
-                  return cm.nome_guerra.toLowerCase().includes(searchTerm) || cm.matricula.includes(searchTerm);
-                })
-                .filter(cm => {
-                  // Excluir militares que já são chefes de outra equipe (exceto a atual se já for ele)
-                  const isAssigned = equipes.some(e =>
-                    e.id_chamada_militar === cm.id_chamada_militar &&
-                    e.id_equipe !== isChefeModalOpen.idEquipe
-                  );
-                  return !isAssigned;
-                })
-                .map(cm => (
+              {(() => {
+                const filteredMilitares = chamadaMilitar
+                  .filter(cm => {
+                    const searchTerm = militarSearch.toLowerCase();
+                    return cm.nome_guerra.toLowerCase().includes(searchTerm) || cm.matricula.includes(searchTerm);
+                  })
+                  .filter(cm => {
+                    // Excluir militares que já são chefes de outra equipe (exceto a atual se já for ele)
+                    const isChefeEmOutraEquipe = equipes.some(e =>
+                      e.id_chamada_militar === cm.id_chamada_militar &&
+                      e.id_equipe !== isChefeModalOpen.idEquipe
+                    );
+                    // Excluir militares que já são componentes em outras equipes
+                    const isComponenteEmOutraEquipe = (Object.values(componentesEquipe) as any[][]).some(list =>
+                      list.some(comp => comp.id_chamada_militar === cm.id_chamada_militar)
+                    );
+                    const isAvailable = !isChefeEmOutraEquipe && !isComponenteEmOutraEquipe;
+                    if (!isAvailable) {
+                      if (isChefeEmOutraEquipe) {
+                        console.log(`Militar ${cm.nome_guerra} já é chefe em outra equipe`);
+                      } else if (isComponenteEmOutraEquipe) {
+                        console.log(`Militar ${cm.nome_guerra} já é componente em outra equipe`);
+                      }
+                    }
+                    return isAvailable;
+                  });
+                
+                console.log(`Chefes disponíveis: ${filteredMilitares.length} de ${chamadaMilitar.length} militares escalados`);
+                return filteredMilitares.map(cm => (
                   <button
                     key={cm.matricula}
                     onClick={() => handleAssignChefe(isChefeModalOpen.idEquipe, cm.matricula)}
@@ -585,7 +607,8 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                       <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">{cm.matricula}</p>
                     </div>
                   </button>
-                ))}
+                ));
+              })()}
             </div>
           </div>
         </div>
@@ -686,7 +709,15 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                   const isComponente = (Object.values(componentesEquipe) as any[][]).some(list =>
                     list.some(comp => comp.id_chamada_militar === cm.id_chamada_militar)
                   );
-                  return !isChefe && !isComponente;
+                  const isAvailable = !isChefe && !isComponente;
+                  if (!isAvailable) {
+                    if (isChefe) {
+                      console.log(`Militar ${cm.nome_guerra} já é chefe em outra equipe`);
+                    } else if (isComponente) {
+                      console.log(`Militar ${cm.nome_guerra} já é componente em outra equipe`);
+                    }
+                  }
+                  return isAvailable;
                 })
                 .map(cm => (
                   <button

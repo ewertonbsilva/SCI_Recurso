@@ -1,10 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Tenta pegar a chave de API do ambiente Vite
-const genAI = new GoogleGenAI({
-    apiKey: import.meta.env.VITE_GEMINI_API_KEY || ""
-});
-
 export const analyzeResources = async (data: {
     militares: any[];
     civis: any[];
@@ -14,6 +9,13 @@ export const analyzeResources = async (data: {
     };
 }) => {
     try {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) {
+            return "A inteligência artificial não está configurada (Chave de API ausente). Configure a variável VITE_GEMINI_API_KEY no arquivo .env.";
+        }
+
+        const genAI = new GoogleGenAI({ apiKey });
+
         const prompt = `
       Como um especialista em gestão estratégica de efetivo militar e defesa civil, analise os seguintes dados de prontidão para hoje:
 

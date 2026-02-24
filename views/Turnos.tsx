@@ -4,6 +4,7 @@ import { Plus, Calendar, Trash2, ChevronRight, Clock } from 'lucide-react';
 import { apiService } from '../apiService';
 import { Turno, Periodo } from '../types';
 import { ToastType } from '../components/Toast';
+import { useAuth } from '../contexts/AuthContext';
 
 // Função para obter cores do tema atual (fora do componente)
 const getThemeColors = () => {
@@ -27,6 +28,7 @@ interface TurnosProps {
 }
 
 const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [apiTurnos, setApiTurnos] = useState<Turno[]>([]);
   const [loading, setLoading] = useState(true);
   const [themeColors, setThemeColors] = useState(getThemeColors());
@@ -65,8 +67,13 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   }, []);
 
   useEffect(() => {
-    loadTurnosFromAPI();
-  }, []);
+    // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
+    if (!authLoading && isAuthenticated) {
+      loadTurnosFromAPI();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   const loadTurnosFromAPI = async () => {
     try {

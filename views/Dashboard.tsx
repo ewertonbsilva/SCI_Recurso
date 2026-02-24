@@ -4,6 +4,7 @@ import { Users, Shield, Clock, BrainCircuit, Loader2, Sparkles } from 'lucide-re
 import { analyzeResources } from '../geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiService } from '../apiService';
+import { useAuth } from '../contexts/AuthContext';
 
 // Função para obter cores do tema atual (fora do componente)
 const getThemeColors = () => {
@@ -22,6 +23,7 @@ const getThemeColors = () => {
 };
 
 const Dashboard: React.FC = () => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [aiAnalysis, setAiAnalysis] = React.useState<string | null>(null);
   const [loadingAi, setLoadingAi] = React.useState(false);
   const [militares, setMilitares] = React.useState<any[]>([]);
@@ -66,8 +68,13 @@ const Dashboard: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    loadDadosFromAPI();
-  }, []);
+    // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
+    if (!authLoading && isAuthenticated) {
+      loadDadosFromAPI();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   const loadDadosFromAPI = async () => {
     try {

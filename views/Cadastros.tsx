@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, UserCheck, ShieldAlert, Info, Ship, Waves, CheckCircle2, Edit2, X, Award, FileText, Calendar, Clock, UserPlus } from 'lucide-react';
 import { CadastroCivil, CadastroMilitar, AtestadoMedico, PostoGrad, Forca, OrgaoOrigem } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
+import { useAuth } from '../contexts/AuthContext';
 
 // Função para obter cores do tema atual (fora do componente)
 const getThemeColors = () => {
@@ -147,19 +147,27 @@ const validatePlaca = (placa: string): boolean => {
   return pattern.test(placa.replace(/[-\s]/g, '').toUpperCase());
 };
 
-const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
-  const [atestados, setAtestados] = useState<AtestadoMedico[]>([]);
-  const [militares, setMilitares] = useState<CadastroMilitar[]>([]);
-  const [civis, setCivis] = useState<CadastroCivil[]>([]);
-  const [postos, setPostos] = useState<PostoGrad[]>([]);
-  const [forcas, setForcas] = useState<Forca[]>([]);
-  const [orgaosOrigem, setOrgaosOrigem] = useState<OrgaoOrigem[]>([]);
-  const [ubms, setUbms] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+const Cadastros: React.FC = () => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'militar' | 'civil' | 'atestado'>('militar');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [themeColors, setThemeColors] = useState(getThemeColors());
+  
+  // Estados de dados
+  const [loading, setLoading] = useState(true);
+  const [militares, setMilitares] = useState<CadastroMilitar[]>([]);
+  const [civis, setCivis] = useState<CadastroCivil[]>([]);
+  const [atestados, setAtestados] = useState<AtestadoMedico[]>([]);
+  const [postos, setPostos] = useState<PostoGrad[]>([]);
+  const [forcas, setForcas] = useState<Forca[]>([]);
+  const [orgaosOrigem, setOrgaosOrigem] = useState<OrgaoOrigem[]>([]);
+  const [ubms, setUbms] = useState<any[]>([]);
+
+  // Função de notificação local
+  const onNotify = (msg: string, type: ToastType) => {
+    console.log(`${type.toUpperCase()}: ${msg}`);
+  };
 
   // Monitorar mudanças no tema
   useEffect(() => {
@@ -195,8 +203,13 @@ const Cadastros: React.FC<CadastrosProps> = ({ onNotify }) => {
   }, []);
 
   useEffect(() => {
-    loadDadosFromAPI();
-  }, []);
+    // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
+    if (!authLoading && isAuthenticated) {
+      loadDadosFromAPI();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   const loadDadosFromAPI = async () => {
     try {

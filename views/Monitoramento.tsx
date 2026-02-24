@@ -4,6 +4,7 @@ import { Clock, User, Phone, MapPin, Users, ChevronDown, ChevronUp, ShieldCheck,
 import { apiService } from '../apiService';
 import { StatusEquipe } from '../types';
 import { useFullscreen } from '../contexts/FullscreenContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface EquipeCardProps {
   equipe: {
@@ -114,6 +115,7 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
 };
 
 const Monitoramento: React.FC = () => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [equipes, setEquipes] = useState<any[]>([]);
   const [turnos, setTurnos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,36 +158,41 @@ const Monitoramento: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchAllData = async () => {
-      setLoading(true);
-      try {
-        const [turnosData] = await Promise.all([
-          apiService.getTurnos()
-        ]);
-        setTurnos(turnosData);
+    // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
+    if (!authLoading && isAuthenticated) {
+      const fetchAllData = async () => {
+        setLoading(true);
+        try {
+          const [turnosData] = await Promise.all([
+            apiService.getTurnos()
+          ]);
+          setTurnos(turnosData);
 
-        // Selecionar o turno mais recente por padrão
-        const latestTurno = [...turnosData].sort((a, b) => b.data.localeCompare(a.data))[0];
-        if (latestTurno) {
-          setSelectedDate(latestTurno.data);
-          setSelectedTurno(latestTurno);
+          // Selecionar o turno mais recente por padrão
+          const latestTurno = [...turnosData].sort((a, b) => b.data.localeCompare(a.data))[0];
+          if (latestTurno) {
+            setSelectedDate(latestTurno.data);
+            setSelectedTurno(latestTurno);
+          }
+
+          // Buscar equipes para o turno selecionado
+          const equipesData = latestTurno ? await apiService.getEquipes(latestTurno.id_turno) : [];
+          setEquipes(equipesData);
+        } catch (error) {
+          console.error('Erro ao buscar dados para monitoramento:', error);
+        } finally {
+          setLoading(false);
         }
+      };
 
-        // Buscar equipes para o turno selecionado
-        const equipesData = latestTurno ? await apiService.getEquipes(latestTurno.id_turno) : [];
-        setEquipes(equipesData);
-      } catch (error) {
-        console.error('Erro ao buscar dados para monitoramento:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      fetchAllData();
+      const interval = setInterval(fetchAllData, 30000); // Atualiza a cada 30s
 
-    fetchAllData();
-    const interval = setInterval(fetchAllData, 30000); // Atualiza a cada 30s
-
-    return () => clearInterval(interval);
-  }, []);
+      return () => clearInterval(interval);
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   // Obter datas únicas dos turnos
   const uniqueDates = [...new Set(turnos.map((turno: any) => turno.data))].sort((a, b) => (b as string).localeCompare(a as string));

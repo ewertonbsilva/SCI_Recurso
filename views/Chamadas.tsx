@@ -1,15 +1,16 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { UserPlus, Trash2, Calendar, Check, Users, ClipboardCheck, X, Download } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Users, Calendar, Search, Plus, Trash2, Edit, Check, X, Clock, ChevronDown, Menu, ClipboardCheck, UserPlus } from 'lucide-react';
 import { apiService } from '../apiService';
-import { ChamadaMilitar, FuncaoMilitar } from '../types';
 import { ToastType } from '../components/Toast';
+import { useAuth } from '../contexts/AuthContext';
+import { ChamadaMilitar, FuncaoMilitar } from '../types';
 
 interface ChamadasProps {
   onNotify?: (msg: string, type: ToastType) => void;
 }
 
 const Chamadas: React.FC<ChamadasProps> = ({ onNotify }) => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [turnos, setTurnos] = useState<any[]>([]);
   const [militares, setMilitares] = useState<any[]>([]);
   const [chamadaMilitar, setChamadaMilitar] = useState<ChamadaMilitar[]>([]);
@@ -21,8 +22,13 @@ const Chamadas: React.FC<ChamadasProps> = ({ onNotify }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
+    if (!authLoading && isAuthenticated) {
+      loadInitialData();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (selectedTurnoId) {

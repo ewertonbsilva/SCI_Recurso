@@ -1,148 +1,172 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="default">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCI Recurso</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Plus Jakarta Sans', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <style>
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
         /* Temas customizados via CSS Variables */
-        :root[data-theme="default"] { --primary: 37 99 235; --primary-hover: 29 78 216; }
-        :root[data-theme="ocean"] { --primary: 14 165 233; --primary-hover: 2 132 199; }
-        :root[data-theme="forest"] { --primary: 16 185 129; --primary-hover: 5 150 105; }
-        :root[data-theme="crimson"] { --primary: 220 38 38; --primary-hover: 185 28 28; }
-        :root[data-theme="indigo"] { --primary: 79 70 229; --primary-hover: 67 56 202; }
+        :root[data-theme="default"] {
+            --primary: 37 99 235;
+            --primary-hover: 29 78 216;
+        }
 
-        .bg-primary { background-color: rgb(var(--primary)); }
-        .text-primary { color: rgb(var(--primary)); }
-        .border-primary { border-color: rgb(var(--primary)); }
-        .ring-primary { --tw-ring-color: rgba(var(--primary), 0.2); }
+        :root[data-theme="ocean"] {
+            --primary: 14 165 233;
+            --primary-hover: 2 132 199;
+        }
+
+        :root[data-theme="forest"] {
+            --primary: 16 185 129;
+            --primary-hover: 5 150 105;
+        }
+
+        :root[data-theme="crimson"] {
+            --primary: 220 38 38;
+            --primary-hover: 185 28 28;
+        }
+
+        :root[data-theme="indigo"] {
+            --primary: 79 70 229;
+            --primary-hover: 67 56 202;
+        }
+
+        .bg-primary {
+            background-color: rgb(var(--primary));
+        }
+
+        .text-primary {
+            color: rgb(var(--primary));
+        }
+
+        .border-primary {
+            border-color: rgb(var(--primary));
+        }
+
+        .ring-primary {
+            --tw-ring-color: rgba(var(--primary), 0.2);
+        }
 
         /* Scrollbar Invisível (mantido para compatibilidade) */
-        ::-webkit-scrollbar { display: none; }
-        * { -ms-overflow-style: none; scrollbar-width: none; }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        * {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
 
         /* Scrollbar Personalizada e Visível */
         .scrollbar-thin {
             scrollbar-width: thin;
             scrollbar-color: #3b82f6 #f1f5f9;
         }
-        
+
         .scrollbar-thin::-webkit-scrollbar {
             width: 6px;
         }
-        
+
         .scrollbar-thin::-webkit-scrollbar-track {
             background: #f1f5f9;
             border-radius: 3px;
         }
-        
+
         .scrollbar-thin::-webkit-scrollbar-thumb {
             background: #3b82f6;
             border-radius: 3px;
             border: 1px solid #e5e7eb;
         }
-        
+
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
             background: #2563eb;
         }
-        
+
         .scrollbar-thin::-webkit-scrollbar-thumb:active {
             background: #1d4ed8;
         }
-        
+
         /* Modo Dark */
         .dark .scrollbar-thin {
             scrollbar-color: #60a5fa #1f2937;
         }
-        
+
         .dark .scrollbar-thin::-webkit-scrollbar-track {
             background: #1f2937;
             border-radius: 3px;
         }
-        
+
         .dark .scrollbar-thin::-webkit-scrollbar-thumb {
             background: #60a5fa;
             border-radius: 3px;
             border: 1px solid #374151;
         }
-        
+
         .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
             background: #3b82f6;
         }
-        
+
         .dark .scrollbar-thin::-webkit-scrollbar-thumb:active {
             background: #2563eb;
         }
-        
+
         /* Scrollbar Azul (para sidebar) */
         .scrollbar-thumb-blue-600 {
             scrollbar-width: thin;
             scrollbar-color: #2563eb #f1f5f9;
         }
-        
+
         .scrollbar-thumb-blue-600::-webkit-scrollbar {
             width: 6px;
         }
-        
+
         .scrollbar-thumb-blue-600::-webkit-scrollbar-track {
             background: #f1f5f9;
             border-radius: 3px;
         }
-        
+
         .scrollbar-thumb-blue-600::-webkit-scrollbar-thumb {
             background: #2563eb;
             border-radius: 3px;
             border: 1px solid #e5e7eb;
         }
-        
+
         .scrollbar-thumb-blue-600::-webkit-scrollbar-thumb:hover {
             background: #1d4ed8;
         }
-        
+
         .scrollbar-thumb-blue-600::-webkit-scrollbar-thumb:active {
             background: #1e40af;
         }
-        
+
         .dark .scrollbar-thumb-blue-600 {
             scrollbar-color: #3b82f6 #1f2937;
         }
-        
+
         .dark .scrollbar-thumb-blue-600::-webkit-scrollbar-track {
             background: #1f2937;
             border-radius: 3px;
         }
-        
+
         .dark .scrollbar-thumb-blue-600::-webkit-scrollbar-thumb {
             background: #3b82f6;
             border-radius: 3px;
             border: 1px solid #374151;
         }
-        
+
         .dark .scrollbar-thumb-blue-600::-webkit-scrollbar-thumb:hover {
             background: #2563eb;
         }
-        
+
         .dark .scrollbar-thumb-blue-600::-webkit-scrollbar-thumb:active {
             background: #60a5fa;
         }
@@ -158,28 +182,38 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.03);
         }
-        
+
         .page-transition {
             animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* Ajustes finos do Modo Dark */
         .dark body {
             background-color: #020617;
         }
+
         .dark .bg-white {
             background-color: #0f172a;
         }
-        .dark .border-slate-100, .dark .border-slate-200 {
+
+        .dark .border-slate-100,
+        .dark .border-slate-200 {
             border-color: #1e293b;
         }
     </style>
-<script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
@@ -191,10 +225,12 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+    <link rel="stylesheet" href="/index.css">
 </head>
+
 <body class="bg-[#F8FAFC] dark:bg-[#020617] text-slate-900 transition-colors duration-300">
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>

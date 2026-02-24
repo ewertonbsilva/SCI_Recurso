@@ -10,19 +10,17 @@ class ApiService {
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log('Fazendo requisição para:', url);
-
+    const authHeaders = this.getAuthHeaders();
+    
     try {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
-          ...this.getAuthHeaders(),
+          ...authHeaders,
           ...options?.headers,
         },
         ...options,
       });
-
-      console.log('Resposta status:', response.status);
 
       if (!response.ok) {
         // Se for erro de autenticação, limpar dados e redirecionar
@@ -35,7 +33,6 @@ class ApiService {
       }
 
       const data = await response.json();
-      console.log('Dados recebidos:', data);
       return data;
     } catch (error) {
       console.error('API Error:', error);
@@ -45,20 +42,19 @@ class ApiService {
 
   // Turnos
   async getTurnos(): Promise<Turno[]> {
-    return this.request<Turno[]>('/api/turnos');
+    return this.request<Turno[]>('/api/');
   }
 
   async createTurno(data: string, periodo: Periodo): Promise<Turno> {
-    return this.request<Turno>('/api/turnos', {
+    return this.request<Turno>('/api/sp/criar-turno', {
       method: 'POST',
       body: JSON.stringify({ data, periodo }),
     });
   }
 
   async deleteTurno(id: string): Promise<void> {
-    return this.request<void>(`/api/turnos/${id}`, {
-      method: 'DELETE',
-    });
+    // Este endpoint não existe no backend - implementar se necessário
+    throw new Error('Endpoint deleteTurno não implementado no backend');
   }
 
   // Militares
@@ -212,10 +208,8 @@ class ApiService {
   }
 
   async criarTurnoComSP(data: string, periodo: string): Promise<any> {
-    return this.request<any>('/api/turnos-com-sp', {
-      method: 'POST',
-      body: JSON.stringify({ data, periodo }),
-    });
+    // Este endpoint não existe no backend - implementar se necessário
+    throw new Error('Endpoint criarTurnoComSP não implementado no backend');
   }
 
   async getDashboard(): Promise<any> {
