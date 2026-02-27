@@ -107,35 +107,6 @@ router.delete('/atestados/:id', async (req: any, res: any, next: any) => {
     } catch (err) { next(err); }
 });
 
-// GET /api/logs
-router.get('/logs', async (req: any, res: any, next: any) => {
-    try {
-        const result = await getConnection().query('SELECT * FROM logs_operacionais ORDER BY timestamp DESC');
-        res.json((result as any)[0]);
-    } catch (err) { next(err); }
-});
-
-// POST /api/logs
-router.post('/logs', async (req: any, res: any, next: any) => {
-    try {
-        const { id, id_turno, timestamp, mensagem, categoria, usuario } = req.body;
-        await getConnection().query(
-            'INSERT INTO logs_operacionais (id, id_turno, timestamp, mensagem, categoria, usuario) VALUES (?, ?, ?, ?, ?, ?)',
-            [id, id_turno, timestamp, mensagem, categoria, usuario]
-        );
-        res.json({ id, ...req.body });
-    } catch (err) { next(err); }
-});
-
-// DELETE /api/logs/:id
-router.delete('/logs/:id', async (req: any, res: any, next: any) => {
-    try {
-        const { id } = req.params;
-        await getConnection().query('DELETE FROM logs_operacionais WHERE id = ?', [id]);
-        res.json({ message: 'Log operacional removido com sucesso' });
-    } catch (err) { next(err); }
-});
-
 // GET /api/debug/militares-structure
 router.get('/debug/militares-structure', async (req: any, res: any, next: any) => {
     try {

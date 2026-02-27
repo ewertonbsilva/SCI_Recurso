@@ -4,6 +4,7 @@ import { CadastroCivil, CadastroMilitar, AtestadoMedico, PostoGrad, Forca, Orgao
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
 import { useAuth } from '../contexts/AuthContext';
+import Pagination from '../components/Pagination';
 
 // Função para obter cores do tema atual (fora do componente)
 const getThemeColors = () => {
@@ -153,6 +154,10 @@ const Cadastros: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [themeColors, setThemeColors] = useState(getThemeColors());
+  
+  // Estados de paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
   
   // Estados de dados
   const [loading, setLoading] = useState(true);
@@ -604,8 +609,27 @@ const Cadastros: React.FC = () => {
     return m?.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) || at.matricula.includes(searchTerm);
   }).sort((a, b) => b.data_inicio.localeCompare(a.data_inicio));
 
+  // Paginação
+  const totalPages = Math.ceil(
+    (activeSubTab === 'militar' ? filteredMilitares.length : 
+     activeSubTab === 'civil' ? filteredCivis.length : 
+     filteredAtestados.length) / itemsPerPage
+  );
+
+  const paginatedData = (() => {
+    const data = activeSubTab === 'militar' ? filteredMilitares : 
+                activeSubTab === 'civil' ? filteredCivis : 
+                filteredAtestados;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  })();
+
+  useEffect(() => {
+    setCurrentPage(1); // Resetar página quando mudar aba ou busca
+  }, [activeSubTab, searchTerm]);
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" style={{ minHeight: 'calc(100vh - 12rem)' }}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">Recursos <span style={{ color: themeColors.primary }}>Base</span></h2>
@@ -621,8 +645,8 @@ const Cadastros: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm sticky top-8">
-            <div className="flex justify-between items-center mb-8">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-black uppercase tracking-tighter">
                 {activeSubTab === 'atestado' ? 'Lançar' : (editingId ? 'Editar' : 'Novo')} <span style={{ color: themeColors.primary }}>{activeSubTab === 'militar' ? 'Militar' : activeSubTab === 'civil' ? 'Civil' : 'Atestado'}</span>
               </h3>
@@ -630,7 +654,7 @@ const Cadastros: React.FC = () => {
             </div>
 
             {activeSubTab === 'atestado' ? (
-              <form onSubmit={handleSaveAtestado} className="space-y-5">
+              <form onSubmit={handleSaveAtestado} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Militar</label>
                   <div className="relative busca-atestado-container">
@@ -697,7 +721,7 @@ const Cadastros: React.FC = () => {
                 <button type="submit" className="w-full text-white py-4 rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}><Plus size={18} /> Registrar Atestado</button>
               </form>
             ) : (
-              <form onSubmit={activeSubTab === 'militar' ? handleSaveMilitar : handleSaveCivil} className="space-y-5">
+              <form onSubmit={activeSubTab === 'militar' ? handleSaveMilitar : handleSaveCivil} className="space-y-4">
                 {activeSubTab === 'militar' ? (
                   <>
                     <div className="grid grid-cols-2 gap-4">
@@ -839,7 +863,7 @@ const Cadastros: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6" style={{ minHeight: '600px' }}>
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group">
             <Search className="text-slate-400 transition-colors ml-4" size={20} style={{ color: themeColors.primary }} />
             <input placeholder="Filtre por nome, matrícula ou unidade..." className="bg-transparent border-none focus:ring-0 w-full outline-none text-sm font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -863,7 +887,7 @@ const Cadastros: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {activeSubTab === 'militar' ? (
-                      filteredMilitares.map((m) => {
+                      (paginatedData as CadastroMilitar[]).map((m) => {
                         const restricted = isMilitarRestricted(m, atestados);
                         return (
                           <tr key={m.matricula} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === m.matricula ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
@@ -892,7 +916,7 @@ const Cadastros: React.FC = () => {
                         );
                       })
                     ) : activeSubTab === 'civil' ? (
-                      filteredCivis.map((c) => (
+                      (paginatedData as CadastroCivil[]).map((c) => (
                         <tr key={c.id_civil} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === c.id_civil ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
                           <td className="px-8 py-5">
                             <div className="font-black text-slate-900 dark:text-white">
@@ -915,7 +939,7 @@ const Cadastros: React.FC = () => {
                         </tr>
                       ))
                     ) : (
-                      filteredAtestados.map((at) => {
+                      (paginatedData as AtestadoMedico[]).map((at) => {
                         const m = militares.find(mil => mil.matricula === at.matricula);
 
                         // Verificar se este atestado específico está ativo
@@ -955,6 +979,16 @@ const Cadastros: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+                
+                {/* Componente de Paginação */}
+                {totalPages > 1 && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    themeColors={themeColors}
+                  />
+                )}
               </>
             )}
           </div>

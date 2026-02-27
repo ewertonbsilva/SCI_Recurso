@@ -11,6 +11,7 @@ import divisRouter from './routes/civis.routes';
 import turnosRouter from './routes/turnos.routes';
 import dashboardRouter from './routes/dashboard.routes';
 import adminRouter from './routes/admin.routes';
+import ubmRouter from './routes/ubm.routes';
 
 // Load environment variables
 dotenv.config();
@@ -31,6 +32,8 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/militares', militaresRouter);
 app.use('/api/civis', divisRouter);
+app.use('/api/turnos', turnosRouter);
+app.use('/api/ubms', ubmRouter);
 app.use('/api', turnosRouter);      // turnos, chamadas, equipes (paths já incluem /turnos etc.)
 app.use('/api', dashboardRouter);   // dashboard, vw/*, sp/*, database-objects
 app.use('/api', adminRouter);       // users, atestados, logs, debug

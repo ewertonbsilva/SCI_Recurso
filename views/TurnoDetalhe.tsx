@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Shield, UserCircle, Download, UserPlus, Trash2, Check, X, FileText, ListChecks, Eraser, Ship, Waves, ShieldAlert, CheckCircle2, Info } from 'lucide-react';
-import { ChamadaMilitar, ChamadaCivil, FuncaoMilitar, StatusEquipe, CadastroMilitar, AtestadoMedico, Turno } from '../types';
-import { ToastType } from '../components/Toast';
+import { ArrowLeft, Download, Trash2, UserPlus, ListChecks, Eraser, Shield, UserCircle, Check, Ship, Waves, ShieldAlert, ChevronLeft, ChevronRightIcon } from 'lucide-react';
 import { apiService } from '../apiService';
 import { useAuth } from '../contexts/AuthContext';
+import { FuncaoMilitar, StatusPresenca, StatusEquipe, CadastroMilitar, CadastroCivil } from '../types';
+import type { ChamadaMilitar, ChamadaCivil, AtestadoMedico, Turno } from '../types';
+import { ToastType } from '../components/Toast';
 
 interface TurnoDetalheProps {
   id_turno: string;
@@ -53,13 +53,25 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   const [chamadaMilitar, setChamadaMilitar] = useState<ChamadaMilitar[]>([]);
   const [chamadaCivil, setChamadaCivil] = useState<ChamadaCivil[]>([]);
   const [militares, setMilitares] = useState<CadastroMilitar[]>([]);
-  const [civis, setCivis] = useState<any[]>([]);
+  const [civis, setCivis] = useState<CadastroCivil[]>([]);
   const [atestados, setAtestados] = useState<AtestadoMedico[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'militar' | 'civil'>('militar');
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingSelection, setPendingSelection] = useState<string[]>([]);
+  
+  // Estados para paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5; // 6 itens por página
+  
+  // Estado para pesquisa na escala
+  const [escalaSearchTerm, setEscalaSearchTerm] = useState('');
 
+
+  useEffect(() => {
+    // Resetar para página 1 quando mudar de aba ou pesquisar
+    setCurrentPage(1);
+  }, [activeSubTab, escalaSearchTerm]);
 
   useEffect(() => {
     // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
@@ -113,29 +125,22 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   const dataFormatada = new Date(turno.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 
   const addMilitar = async () => {
-    const newEntries: ChamadaMilitar[] = pendingSelection.map(mat => ({
-      id_chamada_militar: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
-      id_turno: id_turno,
-      matricula: mat,
-      funcao: FuncaoMilitar.COMBATENTE,
-      presenca: true,
-      obs: ''
-    }));
-
-    if (newEntries.length > 0) {
-      try {
-        // Salvar na API primeiro
-        for (const entry of newEntries) {
-          await apiService.createChamadaMilitar(entry);
-        }
-
-        // Atualizar estado local
-        setChamadaMilitar(prev => [...prev, ...newEntries]);
-        onNotify?.(`${newEntries.length} militar(es) escalado(s).`, "success");
-      } catch (error) {
-        console.error('Erro ao escalar militar:', error);
-        onNotify?.('Erro ao escalar militar no banco de dados', 'error');
-      }
+    if (pendingSelection.length === 0) return;
+    try {
+      const newEntries = pendingSelection.map(matricula => ({
+        id_chamada_militar: crypto.randomUUID(),
+        id_turno,
+        matricula,
+        funcao: FuncaoMilitar.COMBATENTE,
+        presenca: StatusPresenca.AUSENTE,
+        obs: null
+      }));
+      await apiService.createChamadaMilitar(newEntries);
+      setChamadaMilitar(prev => [...prev, ...newEntries]);
+      onNotify?.(`${newEntries.length} militar(es) adicionado(s).`, "success");
+    } catch (error) {
+      console.error('Erro ao adicionar militar:', error);
+      onNotify?.('Erro ao adicionar militar no banco de dados', 'error');
     }
     setPendingSelection([]);
   };
@@ -169,9 +174,80 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
     setPendingSelection([]);
   };
 
+  // Função para obter cores e ícones para cada status
+  const getStatusConfig = (status: StatusPresenca) => {
+    switch (status) {
+      case StatusPresenca.PRESENTE:
+        return {
+          bg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40',
+          label: 'PRESENTE',
+          icon: '✓'
+        };
+      case StatusPresenca.AUSENTE:
+        return {
+          bg: 'bg-red-100 text-red-700 dark:bg-red-900/40',
+          label: 'AUSENTE',
+          icon: '✗'
+        };
+      case StatusPresenca.PERMUTA:
+        return {
+          bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40',
+          label: 'PERMUTA',
+          icon: '↔'
+        };
+      case StatusPresenca.ATESTADO:
+        return {
+          bg: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40',
+          label: 'ATESTADO',
+          icon: '📋'
+        };
+      default:
+        return {
+          bg: 'bg-slate-100 text-slate-700 dark:bg-slate-900/40',
+          label: 'AUSENTE',
+          icon: '✗'
+        };
+    }
+  };
+
+  // Função para obter cores para função
+  const getFuncaoConfig = (funcao: FuncaoMilitar) => {
+    switch (funcao) {
+      case FuncaoMilitar.SCI:
+        return {
+          bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40',
+          label: 'SCI'
+        };
+      case FuncaoMilitar.COMBATENTE:
+        return {
+          bg: 'bg-red-100 text-red-700 dark:bg-red-900/40',
+          label: 'COMBATENTE'
+        };
+      default:
+        return {
+          bg: 'bg-slate-100 text-slate-700 dark:bg-slate-900/40',
+          label: 'COMBATENTE'
+        };
+    }
+  };
+
   const updateChamadaMil = async (id: string, updates: Partial<ChamadaMilitar>) => {
     try {
-      await apiService.updateChamadaMilitar(id, updates);
+      // Encontrar o registro atual para obter o id_turno e função atual
+      const currentChamada = chamadaMilitar.find(cm => cm.id_chamada_militar === id);
+      if (!currentChamada) {
+        throw new Error('Chamada militar não encontrada');
+      }
+      
+      // Incluir o id_turno, matricula e função atual nas atualizações
+      const updateData = {
+        id_turno: currentChamada.id_turno,
+        matricula: currentChamada.matricula,
+        funcao: currentChamada.funcao, // Manter função atual
+        ...updates // Aplicar apenas as atualizações enviadas
+      };
+      
+      await apiService.updateChamadaMilitar(id, updateData);
       setChamadaMilitar(prev => prev.map(m => m.id_chamada_militar === id ? { ...m, ...updates } : m));
     } catch (error) {
       console.error('Erro ao atualizar chamada militar:', error);
@@ -242,6 +318,28 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   const civisDisponiveis = civis.filter(c => !chamadaCiv.some(cc => cc.id_civil === c.id_civil));
   const filteredCivis = civisDisponiveis.filter(c => c.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // Lógica de paginação com pesquisa
+  const currentData = activeSubTab === 'militar' ? chamadaMil : chamadaCiv;
+  const filteredEscalaData = currentData.filter(item => {
+    if (activeSubTab === 'militar') {
+      const m = militares.find(mil => mil.matricula === item.matricula);
+      return m && (m.nome_guerra.toLowerCase().includes(escalaSearchTerm.toLowerCase()) || 
+                   m.matricula.includes(escalaSearchTerm) ||
+                   m.nome_posto_grad.toLowerCase().includes(escalaSearchTerm.toLowerCase()));
+    } else {
+      const c = civis.find(civ => civ.id_civil === item.id_civil);
+      return c && (c.nome_completo.toLowerCase().includes(escalaSearchTerm.toLowerCase()) || 
+                   c.nome_orgao.toLowerCase().includes(escalaSearchTerm.toLowerCase()));
+    }
+  });
+  const totalPages = Math.ceil(filteredEscalaData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = filteredEscalaData.slice(startIndex, startIndex + itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   const handleSelectAll = () => {
     const allAvailableIds = activeSubTab === 'militar' ? filteredMilitares.map(m => m.matricula) : filteredCivis.map(c => c.id_civil);
     setPendingSelection(allAvailableIds);
@@ -251,7 +349,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
     const headers = activeSubTab === 'militar' ? ["Posto/Grad", "Guerra", "Matricula", "Funcao", "Presenca"] : ["Nome", "Orgao", "Qtd Equipe"];
     const rows = activeSubTab === 'militar' ? chamadaMil.map(cm => {
       const m = militares.find(mil => mil.matricula === cm.matricula);
-      return [m?.nome_posto_grad, m?.nome_guerra, cm.matricula, cm.funcao, cm.presenca ? 'SIM' : 'NÃO'];
+      return [m?.nome_posto_grad, m?.nome_guerra, cm.matricula, cm.funcao, cm.presenca || 'AUSENTE'];
     }) : chamadaCiv.map(cc => {
       const c = civis.find(civ => civ.id_civil === cc.id_civil);
       return [c?.nome_completo, c?.nome_orgao, cc.quant_civil];
@@ -289,7 +387,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
               <button onClick={handleSelectAll} className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 dark:bg-slate-800 text-[9px] font-black text-slate-500 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all uppercase tracking-widest"><ListChecks size={14} /> Tudo</button>
               <button onClick={() => setPendingSelection([])} className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 dark:bg-slate-800 text-[9px] font-black text-slate-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all uppercase tracking-widest"><Eraser size={14} /> Limpar</button>
             </div>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
               {activeSubTab === 'militar' ? (
                 filteredMilitares.map(m => <button key={m.matricula} onClick={() => setPendingSelection(prev => prev.includes(m.matricula) ? prev.filter(x => x !== m.matricula) : [...prev, m.matricula])} className={`w-full p-4 rounded-2xl border text-left transition-all ${pendingSelection.includes(m.matricula) ? 'bg-primary border-primary text-white' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}><p className="font-black text-[11px] uppercase flex justify-between">{m?.nome_posto_grad} {m?.nome_guerra}{pendingSelection.includes(m.matricula) && <Check size={14} />}</p><p className={`text-[9px] font-bold ${pendingSelection.includes(m.matricula) ? 'text-blue-100' : 'text-slate-400'}`}>{m.matricula}</p></button>)
               ) : (
@@ -303,7 +401,22 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
 
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/30 dark:bg-slate-800/20"><h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Escala do Turno</h3><button onClick={exportCSV} className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 hover:text-primary transition-colors"><Download size={18} /></button></div>
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex justify-between items-center gap-4">
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                  Escala do Turno {filteredEscalaData.length > 0 && `(${filteredEscalaData.length} encontrados)`}
+                </h3>
+                <input 
+                  placeholder={`Pesquisar ${activeSubTab === 'militar' ? 'militar' : 'civil'}...`} 
+                  className="flex-1 max-w-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" 
+                  value={escalaSearchTerm} 
+                  onChange={e => setEscalaSearchTerm(e.target.value)} 
+                />
+                <button onClick={exportCSV} className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 hover:text-primary transition-colors">
+                  <Download size={18} />
+                </button>
+              </div>
+            </div>
             <table className="w-full text-left">
               <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-800">
                 <tr>
@@ -316,22 +429,40 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {activeSubTab === 'militar' ? (
-                  chamadaMil.map(cm => {
+                  paginatedData.map(cm => {
                     const m = militares.find(mil => mil.matricula === cm.matricula);
-                    const restricted = m ? isMilitarRestricted(m, atestados) : false;
-                    const activeAt = m ? getMilitarActiveAtestado(m.matricula, atestados) : null;
                     return (
                       <tr key={cm.id_chamada_militar} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                         <td className="px-8 py-5"><p className="font-black text-slate-900 dark:text-white text-sm uppercase leading-tight">{m?.nome_posto_grad} {m?.nome_guerra}</p><p className="text-[10px] font-bold text-slate-400 mt-1">{cm.matricula}</p></td>
-                        <td className="px-8 py-5"><div className="flex justify-center gap-2">{m?.cpoe && <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-lg" title="CPOE"><Ship size={14} /></div>}{m?.mergulhador && <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 text-blue-600 rounded-lg" title="CMAUT"><Waves size={14} /></div>}{restricted && <div className="p-1.5 bg-red-50 dark:bg-red-950/30 text-red-600 rounded-lg animate-pulse cursor-help" title={activeAt ? `ATESTADO: ${activeAt.motivo}` : `RESTRIÇÃO: ${m?.desc_rest_med || 'Não informada'}`}><ShieldAlert size={14} /></div>}</div></td>
-                        <td className="px-8 py-5 text-center"><select value={cm.funcao} onChange={e => updateChamadaMil(cm.id_chamada_militar, { funcao: e.target.value as FuncaoMilitar })} className="bg-slate-100 dark:bg-slate-800 border-none px-4 py-1.5 rounded-full text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 outline-none cursor-pointer"><option value={FuncaoMilitar.COMBATENTE}>Combatente</option><option value={FuncaoMilitar.SCI}>SCI</option></select></td>
-                        <td className="px-8 py-5 text-center"><button onClick={() => updateChamadaMil(cm.id_chamada_militar, { presenca: !cm.presenca })} className={`px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all shadow-sm ${cm.presenca ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40' : 'bg-red-100 text-red-700 dark:bg-red-900/40'}`}>{cm.presenca ? 'PRESENTE' : 'AUSENTE'}</button></td>
-                        <td className="px-8 py-5 text-right"><button onClick={(e) => removeChamadaMil(e, cm.id_chamada_militar)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button></td>
+                        <td className="px-8 py-5"><div className="flex justify-center gap-2">{m?.cpoe && <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-lg" title="CPOE"><Ship size={14} /></div>}{m?.mergulhador && <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 text-blue-600 rounded-lg" title="CMAUT"><Waves size={14} /></div>}</div></td>
+                        <td className="px-8 py-5 text-center">
+                        <select 
+                          value={cm.funcao} 
+                          onChange={e => updateChamadaMil(cm.id_chamada_militar, { funcao: e.target.value as FuncaoMilitar })} 
+                          className={`border-none px-4 py-1.5 rounded-full text-[10px] font-black uppercase outline-none cursor-pointer ${getFuncaoConfig(cm.funcao).bg}`}
+                        >
+                          <option value={FuncaoMilitar.SCI}>SCI</option>
+                          <option value={FuncaoMilitar.COMBATENTE}>COMBATENTE</option>
+                        </select>
+                      </td>
+                        <td className="px-8 py-5 text-center">
+                        <select 
+                          value={cm.presenca || StatusPresenca.AUSENTE} 
+                          onChange={e => updateChamadaMil(cm.id_chamada_militar, { presenca: e.target.value as StatusPresenca })} 
+                          className={`border-none px-4 py-1.5 rounded-full text-[10px] font-black uppercase outline-none cursor-pointer ${getStatusConfig(cm.presenca || StatusPresenca.AUSENTE).bg}`}
+                        >
+                          <option value={StatusPresenca.PRESENTE}>✓ PRESENTE</option>
+                          <option value={StatusPresenca.AUSENTE}>✗ AUSENTE</option>
+                          <option value={StatusPresenca.PERMUTA}>↔ PERMUTA</option>
+                          <option value={StatusPresenca.ATESTADO}>📋 ATESTADO</option>
+                        </select>
+                      </td>
+                        <td className="px-8 py-5 text-right"><button onClick={(e) => removeChamadaMil(e, cm.id_chamada_militar)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={18} /></button></td>
                       </tr>
                     );
                   })
                 ) : (
-                  chamadaCiv.map(cc => {
+                  paginatedData.map(cc => {
                     const c = civis.find(civ => civ.id_civil === cc.id_civil);
                     return (
                       <tr key={cc.id_chamada_civil} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
@@ -340,14 +471,73 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   const value = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
   updateChamadaCiv(cc.id_chamada_civil, { quant_civil: value });
 }} className="w-16 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-black text-blue-600 outline-none" /></td>
-                        <td className="px-8 py-5 text-right"><button onClick={(e) => removeChamadaCiv(e, cc.id_chamada_civil)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button></td>
+                        <td className="px-8 py-5 text-right"><button onClick={(e) => removeChamadaCiv(e, cc.id_chamada_civil)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={18} /></button></td>
                       </tr>
                     );
                   })
                 )}
-                {(activeSubTab === 'militar' ? chamadaMil : chamadaCiv).length === 0 && <tr><td colSpan={6} className="py-24 text-center text-slate-300 dark:text-slate-600 italic font-medium">Nenhum registro para este turno. Adicione pessoal à esquerda.</td></tr>}
+                {paginatedData.length === 0 && <tr><td colSpan={6} className="py-24 text-center text-slate-300 dark:text-slate-600 italic font-medium">
+                  {filteredEscalaData.length === 0 
+                    ? (escalaSearchTerm 
+                        ? `Nenhum ${activeSubTab === 'militar' ? 'militar' : 'civil'} encontrado para "${escalaSearchTerm}".`
+                        : "Nenhum registro para este turno. Adicione pessoal à esquerda."
+                      )
+                    : "Nenhum registro nesta página."
+                  }
+                </td></tr>}
               </tbody>
             </table>
+            
+            {/* Controles de Paginação */}
+            {totalPages > 1 && (
+              <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-3 py-1 rounded-lg text-sm font-black transition-all ${
+                          currentPage === pageNum
+                            ? 'text-white shadow-lg'
+                            : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                        style={currentPage === pageNum ? { backgroundColor: '#3b82f6' } : {}}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronRightIcon size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

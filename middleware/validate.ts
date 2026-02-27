@@ -14,9 +14,9 @@ export const validateBody = (schema: z.ZodSchema) => {
             req.body = await schema.parseAsync(req.body);
             next();
         } catch (error) {
-            if (error instanceof ZodError) {
+            if (error instanceof ZodError && error.issues) {
                 // Mapeia os erros do Zod para uma string legível.
-                const errorMessages = (error as any).errors.map((issue) => {
+                const errorMessages = error.issues.map((issue) => {
                     // issue.path pode ser um array de strings ou numbers, join('.') é seguro.
                     const path = issue.path.length > 0 ? issue.path.join('.') : 'body';
                     return `${path}: ${issue.message}`;
@@ -24,6 +24,7 @@ export const validateBody = (schema: z.ZodSchema) => {
                 next(createError(`Dados inválidos: ${errorMessages}`, 400));
             } else {
                 // Para outros tipos de erro que não sejam ZodError.
+                console.error('Erro na validação:', error);
                 next(createError('Erro na validação de dados', 500));
             }
         }
@@ -48,7 +49,15 @@ export const chamadaMilitarSchema = z.object({
     id_turno: z.string().min(1, 'ID do turno é obrigatório'),
     matricula: z.string().min(1, 'Matrícula é obrigatória'),
     funcao: z.string().optional(),
-    presenca: z.boolean().optional(),
+    presenca: z.enum(['PRESENTE', 'AUSENTE', 'PERMUTA', 'ATESTADO']).optional(),
+    obs: z.string().optional().nullable(),
+});
+
+export const chamadaMilitarUpdateSchema = z.object({
+    id_turno: z.string().optional(),
+    matricula: z.string().optional(),
+    funcao: z.string().optional(),
+    presenca: z.enum(['PRESENTE', 'AUSENTE', 'PERMUTA', 'ATESTADO']).optional(),
     obs: z.string().optional().nullable(),
 });
 
@@ -65,5 +74,5 @@ export const militarSchema = z.object({
     mergulhador: z.boolean().optional(),
     restricao_medica: z.boolean().optional(),
     desc_rest_med: z.string().optional().nullable(),
-    id_ubm: z.number().optional().nullable(),
+    id_ubm: z.union([z.string(), z.number()]).optional().nullable(),
 });

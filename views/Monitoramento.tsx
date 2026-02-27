@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clock, User, Phone, MapPin, Users, ChevronDown, ChevronUp, ShieldCheck, ExternalLink, Maximize, Minimize } from 'lucide-react';
+import { Clock, User, Phone, MapPin, Users, ChevronDown, ChevronUp, ShieldCheck, Maximize, Minimize, Truck } from 'lucide-react';
 import { apiService } from '../apiService';
 import { StatusEquipe } from '../types';
 import { useFullscreen } from '../contexts/FullscreenContext';
@@ -33,10 +33,13 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
 
     const interval = setInterval(() => {
       const now = Date.now();
-      const diff = Math.floor((now - equipe.inicio) / 1000);
-      const h = Math.floor(diff / 3600).toString().padStart(2, '0');
-      const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
-      const s = (diff % 60).toString().padStart(2, '0');
+      const inicio = isNaN(equipe.inicio) ? now : equipe.inicio;
+      const diff = Math.floor((now - inicio) / 1000);
+      
+      const absDiff = Math.abs(diff);
+      const h = Math.floor(absDiff / 3600).toString().padStart(2, '0');
+      const m = Math.floor((absDiff % 3600) / 60).toString().padStart(2, '0');
+      const s = (absDiff % 60).toString().padStart(2, '0');
       setTimer(`${h}:${m}:${s}`);
     }, 1000);
 
@@ -49,14 +52,9 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
     [StatusEquipe.PAUSA_OPERACIONAL]: 'border-l-slate-500',
   };
 
-  const openMap = () => {
-    if (equipe.bairro) {
-      window.open(`https://www.google.com/maps/search/${encodeURIComponent(equipe.bairro)}`, '_blank');
-    }
-  };
 
   return (
-    <div className={`bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-8 ${borderColors[equipe.status]} p-6 transition-all hover:shadow-xl relative overflow-hidden group`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-8 ${borderColors[equipe.status]} p-6 transition-all hover:shadow-xl relative overflow-visible group`}>
       {equipe.status !== StatusEquipe.EMPENHADA && (
         <div className="absolute top-4 right-4 flex items-center gap-1.5 text-red-600 dark:text-red-400 font-mono font-bold text-xs bg-red-50 dark:bg-red-950/30 px-3 py-1.5 rounded-xl border border-red-100 dark:border-red-900/30 animate-pulse">
           <Clock size={12} />
@@ -68,6 +66,7 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
         <h3 className="text-xl font-black text-blue-600 dark:text-blue-400 uppercase truncate pr-20 tracking-tighter">{equipe.nome}</h3>
       </div>
 
+      {/* Informações visíveis por padrão */}
       <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
         <div className="flex items-center gap-2">
           <ShieldCheck size={16} className="text-blue-500 shrink-0" />
@@ -78,36 +77,46 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
           <p className="truncate"><strong>Mot.:</strong> {equipe.motorista}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Phone size={16} className="text-slate-400 shrink-0" />
-          <p className="truncate"><strong>Contato:</strong> {equipe.tel_mot}</p>
-        </div>
-        <div className="flex items-center justify-between gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <MapPin size={16} className="text-red-500 shrink-0" />
-            <p className="truncate text-xs font-bold uppercase">{equipe.bairro || 'BASE'}</p>
-          </div>
-          {equipe.bairro && (
-            <button onClick={openMap} className="p-1 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-colors" title="Ver no Mapa">
-              <ExternalLink size={14} />
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
           <Users size={16} className="text-slate-400 shrink-0" />
           <p><strong>Efetivo:</strong> {equipe.pessoas} pessoas</p>
         </div>
+        <div className="flex items-center gap-2">
+          <MapPin size={16} className="text-red-500 shrink-0" />
+          <p className="truncate text-xs font-bold uppercase">{equipe.bairro || 'BASE'}</p>
+        </div>
       </div>
 
+      {/* Informações colapsadas */}
       <button
         onClick={() => setExpanded(!expanded)}
         className="mt-6 w-full text-slate-400 dark:text-slate-500 font-bold text-[9px] tracking-widest flex items-center justify-center gap-1 hover:text-blue-500 transition-colors uppercase"
       >
-        {expanded ? <><ChevronUp size={14} /> Detalhes</> : <><ChevronDown size={14} /> Detalhes</>}
+        {expanded ? <><ChevronUp size={14} /> Mais Detalhes</> : <><ChevronDown size={14} /> Mais Detalhes</>}
       </button>
 
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 italic animate-in fade-in slide-in-from-top-2 duration-300">
-          {equipe.detalhes}
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 italic animate-in fade-in slide-in-from-top-2 duration-300 space-y-2">
+          <div className="flex items-center gap-2">
+            <Truck size={14} className="text-slate-400 shrink-0" />
+            <p><strong>VTR:</strong> {equipe.detalhes?.split(' | ')[0]?.replace('VTR: ', '') || 'N/D'}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Phone size={14} className="text-slate-400 shrink-0" />
+            <p><strong>Contato:</strong> {equipe.tel_mot}</p>
+          </div>
+          {equipe.componentes && equipe.componentes.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+              <p className="font-bold text-xs uppercase mb-2 text-slate-600 dark:text-slate-400">Guarnição ({equipe.componentes.length} militares)</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {equipe.componentes.map((comp: any, index: number) => (
+                  <div key={index} className="flex items-center gap-2 text-xs py-1">
+                    <User size={12} className="text-slate-400" />
+                    <span>{comp.nome_posto_grad ? `${comp.nome_posto_grad} ` : ''}{comp.nome_guerra || comp.nome_completo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -215,7 +224,17 @@ const Monitoramento: React.FC = () => {
       if (selectedTurno) {
         try {
           const equipesData = await apiService.getEquipes(selectedTurno.id_turno);
-          setEquipes(equipesData);
+          
+          // Carregar componentes para cada equipe
+          const componentesPromises = equipesData.map(e => apiService.getComponentesEquipe(e.id_equipe));
+          const componentesResults = await Promise.all(componentesPromises);
+          
+          const equipesComComponentes = equipesData.map((equipe, index) => ({
+            ...equipe,
+            componentes: componentesResults[index] || []
+          }));
+          
+          setEquipes(equipesComComponentes);
         } catch (error) {
           console.error('Erro ao carregar equipes:', error);
         }
@@ -228,6 +247,7 @@ const Monitoramento: React.FC = () => {
   const currentTurno = selectedTurno;
 
   const mappedEquipes = (equipes || [])
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     .map(eq => {
       // Cálculo do efetivo: Chefe(1) + Motorista(1) + Auxiliares(quant_civil) + Guarnição(total_componentes)
       let efetivo = 0;
@@ -241,13 +261,14 @@ const Monitoramento: React.FC = () => {
       return {
         id: eq.id_equipe,
         nome: eq.nome_equipe || eq.vtr_modelo || 'EQUIPE S/ VTR',
-        chefe: eq.nome_militar ? `${eq.matricula_militar} - ${eq.nome_militar}` : '',
+        chefe: eq.nome_militar ? `${eq.nome_posto_grad || ''} ${eq.nome_militar}`.trim() : '',
         motorista: eq.nome_motorista || 'N/A',
-        tel_mot: 'N/A', // Opcional: buscar do cadastro se disponível
+        tel_mot: eq.tel_mot || 'N/A', // Telefone do motorista
         bairro: eq.bairro || '',
         pessoas: efetivo,
         status: eq.status,
         inicio: new Date(eq.updated_at).getTime(),
+        componentes: eq.componentes || [],
         detalhes: `VTR: ${eq.vtr_modelo || 'N/D'} | Chefe: ${eq.nome_militar || 'Nenhum'}`
       };
     });
@@ -259,8 +280,8 @@ const Monitoramento: React.FC = () => {
   ];
 
   return (
-    <div className={`space-y-10 transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 bg-slate-50 dark:bg-slate-900 overflow-auto' : ''}`}>
-      <div className={`bg-slate-900 dark:bg-black text-white rounded-[3rem] shadow-2xl border border-slate-800 relative overflow-hidden transition-all duration-300 ${isFullscreen ? 'p-6 mx-4 mt-4' : 'p-10'}`}>
+    <div className={`min-h-screen space-y-10 transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 bg-slate-50 dark:bg-slate-900 overflow-auto' : ''}`}>
+      <div className={`bg-slate-900 dark:bg-black text-white rounded-[3rem] shadow-2xl border border-slate-800 relative overflow-visible transition-all duration-300 ${isFullscreen ? 'p-6 mx-4 mt-4' : 'p-10'}`}>
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <button
           onClick={(e) => {
@@ -332,7 +353,7 @@ const Monitoramento: React.FC = () => {
         </div>
       </div>
 
-      <div className={`space-y-16 transition-all duration-300 ${isFullscreen ? 'px-4 pb-4' : ''}`}>
+      <div className={`min-h-[calc(100vh-200px)] space-y-16 transition-all duration-300 ${isFullscreen ? 'px-4 pb-4' : ''}`}>
         {categorias.map(cat => {
           const equipesNaCat = mappedEquipes.filter(e => e.status === cat.id);
           return (

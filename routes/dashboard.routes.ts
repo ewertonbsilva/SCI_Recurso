@@ -17,11 +17,127 @@ router.get('/postos-grad', async (req: any, res: any, next: any) => {
     } catch (err) { next(err); }
 });
 
+// POST /api/postos-grad
+router.post('/postos-grad', async (req: any, res: any, next: any) => {
+    try {
+        const { nome_posto_grad, hierarquia } = req.body;
+        const nomeUppercase = nome_posto_grad.toUpperCase();
+        
+        const [result] = await getConnection().query(
+            'INSERT INTO posto_grad (nome_posto_grad, hierarquia) VALUES (?, ?)',
+            [nomeUppercase, hierarquia]
+        );
+        const [newPosto] = await getConnection().query(
+            'SELECT * FROM posto_grad ORDER BY id_posto_grad DESC LIMIT 1'
+        );
+        res.status(201).json(newPosto[0]);
+    } catch (err) { next(err); }
+});
+
+// PUT /api/postos-grad/:id
+router.put('/postos-grad/:id', async (req: any, res: any, next: any) => {
+    try {
+        const { id } = req.params;
+        const { nome_posto_grad, hierarquia } = req.body;
+        const nomeUppercase = nome_posto_grad.toUpperCase();
+        
+        const [result] = await getConnection().query(
+            'UPDATE posto_grad SET nome_posto_grad = ?, hierarquia = ? WHERE id_posto_grad = ?',
+            [nomeUppercase, hierarquia, id]
+        );
+        
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json({ error: 'Posto/Grad not found' });
+        }
+        
+        const [updatedPosto] = await getConnection().query(
+            'SELECT * FROM posto_grad WHERE id_posto_grad = ?',
+            [id]
+        );
+        res.json(updatedPosto[0]);
+    } catch (err) { next(err); }
+});
+
+// DELETE /api/postos-grad/:id
+router.delete('/postos-grad/:id', async (req: any, res: any, next: any) => {
+    try {
+        const { id } = req.params;
+        const [result] = await getConnection().query(
+            'DELETE FROM posto_grad WHERE id_posto_grad = ?',
+            [id]
+        );
+        
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json({ error: 'Posto/Grad not found' });
+        }
+        
+        res.json({ message: 'Posto/Grad deleted successfully' });
+    } catch (err) { next(err); }
+});
+
 // GET /api/forcas
 router.get('/forcas', async (req: any, res: any, next: any) => {
     try {
         const result = await getConnection().query('SELECT * FROM forcas ORDER BY nome_forca ASC');
         res.json((result as any)[0]);
+    } catch (err) { next(err); }
+});
+
+// POST /api/forcas
+router.post('/forcas', async (req: any, res: any, next: any) => {
+    try {
+        const { nome_forca } = req.body;
+        const nomeUppercase = nome_forca.toUpperCase();
+        
+        const [result] = await getConnection().query(
+            'INSERT INTO forcas (nome_forca) VALUES (?)',
+            [nomeUppercase]
+        );
+        const [newForca] = await getConnection().query(
+            'SELECT * FROM forcas ORDER BY id_forca DESC LIMIT 1'
+        );
+        res.status(201).json(newForca[0]);
+    } catch (err) { next(err); }
+});
+
+// PUT /api/forcas/:id
+router.put('/forcas/:id', async (req: any, res: any, next: any) => {
+    try {
+        const { id } = req.params;
+        const { nome_forca } = req.body;
+        const nomeUppercase = nome_forca.toUpperCase();
+        
+        const [result] = await getConnection().query(
+            'UPDATE forcas SET nome_forca = ? WHERE id_forca = ?',
+            [nomeUppercase, id]
+        );
+        
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json({ error: 'Força not found' });
+        }
+        
+        const [updatedForca] = await getConnection().query(
+            'SELECT * FROM forcas WHERE id_forca = ?',
+            [id]
+        );
+        res.json(updatedForca[0]);
+    } catch (err) { next(err); }
+});
+
+// DELETE /api/forcas/:id
+router.delete('/forcas/:id', async (req: any, res: any, next: any) => {
+    try {
+        const { id } = req.params;
+        const [result] = await getConnection().query(
+            'DELETE FROM forcas WHERE id_forca = ?',
+            [id]
+        );
+        
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json({ error: 'Força not found' });
+        }
+        
+        res.json({ message: 'Força deleted successfully' });
     } catch (err) { next(err); }
 });
 
@@ -49,6 +165,64 @@ router.get('/orgaos-origem', async (req: any, res: any, next: any) => {
     try {
         const result = await getConnection().query('SELECT * FROM orgaos_origem ORDER BY nome_orgao ASC');
         res.json((result as any)[0]);
+    } catch (err) { next(err); }
+});
+
+// POST /api/orgaos-origem
+router.post('/orgaos-origem', async (req: any, res: any, next: any) => {
+    try {
+        const { nome_orgao } = req.body;
+        const nomeUppercase = nome_orgao.toUpperCase();
+        
+        const [result] = await getConnection().query(
+            'INSERT INTO orgaos_origem (nome_orgao) VALUES (?)',
+            [nomeUppercase]
+        );
+        const [newOrgao] = await getConnection().query(
+            'SELECT * FROM orgaos_origem ORDER BY id_orgao_origem DESC LIMIT 1'
+        );
+        res.status(201).json(newOrgao[0]);
+    } catch (err) { next(err); }
+});
+
+// PUT /api/orgaos-origem/:id
+router.put('/orgaos-origem/:id', async (req: any, res: any, next: any) => {
+    try {
+        const { id } = req.params;
+        const { nome_orgao } = req.body;
+        const nomeUppercase = nome_orgao.toUpperCase();
+        
+        const [result] = await getConnection().query(
+            'UPDATE orgaos_origem SET nome_orgao = ? WHERE id_orgao_origem = ?',
+            [nomeUppercase, id]
+        );
+        
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json({ error: 'Orgão not found' });
+        }
+        
+        const [updatedOrgao] = await getConnection().query(
+            'SELECT * FROM orgaos_origem WHERE id_orgao_origem = ?',
+            [id]
+        );
+        res.json(updatedOrgao[0]);
+    } catch (err) { next(err); }
+});
+
+// DELETE /api/orgaos-origem/:id
+router.delete('/orgaos-origem/:id', async (req: any, res: any, next: any) => {
+    try {
+        const { id } = req.params;
+        const [result] = await getConnection().query(
+            'DELETE FROM orgaos_origem WHERE id_orgao_origem = ?',
+            [id]
+        );
+        
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json({ error: 'Orgão not found' });
+        }
+        
+        res.json({ message: 'Orgão deleted successfully' });
     } catch (err) { next(err); }
 });
 

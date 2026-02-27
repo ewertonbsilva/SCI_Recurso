@@ -53,8 +53,9 @@ class ApiService {
   }
 
   async deleteTurno(id: string): Promise<void> {
-    // Este endpoint não existe no backend - implementar se necessário
-    throw new Error('Endpoint deleteTurno não implementado no backend');
+    return this.request<void>(`/api/turnos/${id}`, {
+      method: 'DELETE'
+    });
   }
 
   // Militares
@@ -265,24 +266,6 @@ class ApiService {
 
   async deleteAtestado(id: string): Promise<void> {
     return this.request<void>(`/api/atestados/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
-  // Logs Operacionais
-  async getLogs(): Promise<any[]> {
-    return this.request<any[]>('/api/logs');
-  }
-
-  async createLog(log: any): Promise<any> {
-    return this.request<any>('/api/logs', {
-      method: 'POST',
-      body: JSON.stringify(log),
-    });
-  }
-
-  async deleteLog(id: string): Promise<void> {
-    return this.request<void>(`/api/logs/${id}`, {
       method: 'DELETE',
     });
   }

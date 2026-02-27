@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
 import { apiService } from '../apiService';
-import AuditoriaService from '../services/AuditoriaService';
 
 interface AuthContextType {
   user: User | null;
@@ -91,9 +90,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('auth_token', data.token);
         localStorage.setItem('auth_user', JSON.stringify(data.user));
         
-        // Registrar login na auditoria
-        AuditoriaService.registrarLogin(data.user.nome);
-        
         return { success: true };
       } else {
         return { success: false, error: data.error || 'Erro ao fazer login' };
@@ -134,11 +130,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     const currentUser = user;
     clearAuth();
-    
-    // Registrar logout na auditoria
-    if (currentUser) {
-      AuditoriaService.registrarLogout(currentUser.nome);
-    }
   };
 
   const value: AuthContextType = {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getConnection } from '../db';
 import { authenticateToken } from '../auth';
-import { validateBody, turnoSchema, chamadaMilitarSchema } from '../middleware/validate';
+import { validateBody, turnoSchema, chamadaMilitarSchema, chamadaMilitarUpdateSchema } from '../middleware/validate';
 
 const router = Router();
 
@@ -76,7 +76,7 @@ router.post('/chamada-militar', validateBody(chamadaMilitarSchema), async (req: 
 });
 
 // PUT /api/chamada-militar/:id
-router.put('/chamada-militar/:id', async (req: any, res: any, next: any) => {
+router.put('/chamada-militar/:id', validateBody(chamadaMilitarUpdateSchema), async (req: any, res: any, next: any) => {
     try {
         const { id } = req.params;
         const { id_turno, matricula, funcao, presenca, obs } = req.body;
@@ -169,13 +169,14 @@ router.get('/equipes/:idTurno', async (req: any, res: any, next: any) => {
         const { idTurno } = req.params;
         const result = await getConnection().query(
             `SELECT e.*, t.data as turno_data, t.periodo as turno_periodo,
-              cm.matricula as matricula_militar, m.nome_guerra as nome_militar,
-              cc.quant_civil, cc.id_civil, c.nome_completo as nome_motorista, c.modelo_veiculo as vtr_modelo,
+              cm.matricula as matricula_militar, m.nome_guerra as nome_militar, pg.nome_posto_grad,
+              cc.quant_civil, cc.id_civil, c.nome_completo as nome_motorista, c.modelo_veiculo as vtr_modelo, c.contato as tel_mot,
               (SELECT COUNT(*) FROM componentes_equipe ce WHERE ce.id_equipe = e.id_equipe) as total_componentes
        FROM equipes e
        LEFT JOIN turnos t ON e.id_turno = t.id_turno
        LEFT JOIN chamada_militar cm ON e.id_chamada_militar = cm.id_chamada_militar
        LEFT JOIN militares m ON cm.matricula = m.matricula
+       LEFT JOIN posto_grad pg ON m.id_posto_grad = pg.id_posto_grad
        LEFT JOIN chamada_civil cc ON e.id_chamada_civil = cc.id_chamada_civil
        LEFT JOIN civis c ON cc.id_civil = c.id_civil
        WHERE e.id_turno = ?`,
@@ -260,6 +261,15 @@ router.post('/equipes/componentes', async (req: any, res: any, next: any) => {
             [id, id_equipe, id_chamada_militar, id_turno]
         );
         res.json({ id_componente: id, ...req.body });
+    } catch (err) { next(err); }
+});
+
+// DELETE /api/turnos/:id
+router.delete('/turnos/:id', async (req: any, res: any, next: any) => {
+    try {
+        const { id } = req.params;
+        await getConnection().query('DELETE FROM turnos WHERE id_turno = ?', [id]);
+        res.json({ message: 'Turno removido com sucesso' });
     } catch (err) { next(err); }
 });
 

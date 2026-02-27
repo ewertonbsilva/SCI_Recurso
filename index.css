@@ -1,5 +1,99 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: 'Plus Jakarta Sans', sans-serif;
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+/* Reset completo para selects */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Forçar cores nas opções - abordagem mais forte */
+select option {
+  background-color: inherit !important;
+  color: inherit !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Reset completo de hover e focus */
+select option:hover,
+select option:focus,
+select option:active,
+select option:checked {
+  background-color: inherit !important;
+  color: inherit !important;
+  outline: none !important;
+  border: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Cores específicas com força máxima */
+select option[value="PRESENTE"] {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+}
+
+select option[value="AUSENTE"] {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+select option[value="PERMUTA"] {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+}
+
+select option[value="ATESTADO"] {
+  background-color: #fef3c7 !important;
+  color: #a16207 !important;
+}
+
+/* Forçar cores em todos os estados */
+select option[value="PRESENTE"]:hover,
+select option[value="PRESENTE"]:focus,
+select option[value="PRESENTE"]:active,
+select option[value="PRESENTE"]:checked {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  outline: none !important;
+  border: none !important;
+}
+
+select option[value="AUSENTE"]:hover,
+select option[value="AUSENTE"]:focus,
+select option[value="AUSENTE"]:active,
+select option[value="AUSENTE"]:checked {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  outline: none !important;
+  border: none !important;
+}
+
+select option[value="PERMUTA"]:hover,
+select option[value="PERMUTA"]:focus,
+select option[value="PERMUTA"]:active,
+select option[value="PERMUTA"]:checked {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  outline: none !important;
+  border: none !important;
+}
+
+select option[value="ATESTADO"]:hover,
+select option[value="ATESTADO"]:focus,
+select option[value="ATESTADO"]:active,
+select option[value="ATESTADO"]:checked {
+  background-color: #fef3c7 !important;
+  color: #a16207 !important;
+  outline: none !important;
+  border: none !important;
 }

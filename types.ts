@@ -14,6 +14,13 @@ export enum FuncaoMilitar {
   COMBATENTE = 'Combatente'
 }
 
+export enum StatusPresenca {
+  PRESENTE = 'PRESENTE',
+  AUSENTE = 'AUSENTE',
+  PERMUTA = 'PERMUTA',
+  ATESTADO = 'ATESTADO'
+}
+
 export enum StatusEquipe {
   LIVRE = 'livre',
   EMPENHADA = 'empenhada',
@@ -199,7 +206,7 @@ export interface ChamadaMilitar {
   id_turno: string;
   matricula: string;
   funcao: FuncaoMilitar;
-  presenca: boolean;
+  presenca: StatusPresenca;
   obs?: string;
 }
 
@@ -210,29 +217,6 @@ export interface ChamadaCivil {
   quant_civil: number;
   created_at?: string;
   updated_at?: string;
-}
-
-export interface LogOperacional {
-  id: string;
-  id_turno: string;
-  timestamp: number;
-  mensagem: string;
-  categoria: 'Informativo' | 'Equipe' | 'Urgente';
-  usuario: string;
-}
-
-export interface LogAuditoria {
-  id: string;
-  timestamp: number;
-  usuario: string;
-  acao: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
-  modulo: string;
-  entidade: string;
-  id_entidade: string;
-  dados_antigos?: any;
-  dados_novos?: any;
-  ip_address?: string;
-  user_agent?: string;
 }
 
 export interface AtestadoMedico {

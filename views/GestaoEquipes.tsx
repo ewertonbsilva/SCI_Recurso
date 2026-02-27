@@ -96,7 +96,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
         apiService.getChamadaMilitar(idTurno),
         apiService.getChamadaCivil(idTurno)
       ]);
-      setEquipes(equipesData);
+      setEquipes(equipesData.sort((a, b) => (a.nome_equipe || '').localeCompare(b.nome_equipe || '', 'pt-BR')));
       setChamadaMilitar(cmData);
       setChamadaCivil(ccData);
 
@@ -121,7 +121,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
 
   const updateEquipeData = async (id: string, updates: Partial<Equipe>, immediate = true) => {
     // Atualiza o estado local imediatamente para feedback instantâneo
-    setEquipes(prev => prev.map(e => e.id_equipe === id ? { ...e, ...updates } : e));
+    setEquipes(prev => prev.map(e => e.id_equipe === id ? { ...e, ...updates } : e).sort((a, b) => (a.nome_equipe || '').localeCompare(b.nome_equipe || '', 'pt-BR')));
 
     if (immediate) {
       try {
@@ -582,17 +582,9 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                       list.some(comp => comp.id_chamada_militar === cm.id_chamada_militar)
                     );
                     const isAvailable = !isChefeEmOutraEquipe && !isComponenteEmOutraEquipe;
-                    if (!isAvailable) {
-                      if (isChefeEmOutraEquipe) {
-                        console.log(`Militar ${cm.nome_guerra} já é chefe em outra equipe`);
-                      } else if (isComponenteEmOutraEquipe) {
-                        console.log(`Militar ${cm.nome_guerra} já é componente em outra equipe`);
-                      }
-                    }
                     return isAvailable;
                   });
                 
-                console.log(`Chefes disponíveis: ${filteredMilitares.length} de ${chamadaMilitar.length} militares escalados`);
                 return filteredMilitares.map(cm => (
                   <button
                     key={cm.matricula}
@@ -710,13 +702,6 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                     list.some(comp => comp.id_chamada_militar === cm.id_chamada_militar)
                   );
                   const isAvailable = !isChefe && !isComponente;
-                  if (!isAvailable) {
-                    if (isChefe) {
-                      console.log(`Militar ${cm.nome_guerra} já é chefe em outra equipe`);
-                    } else if (isComponente) {
-                      console.log(`Militar ${cm.nome_guerra} já é componente em outra equipe`);
-                    }
-                  }
                   return isAvailable;
                 })
                 .map(cm => (
