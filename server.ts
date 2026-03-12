@@ -47,7 +47,7 @@ const startServer = async () => {
     await initializeDatabase();
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`📊 API disponível em http://localhost:${PORT}/api`);
+      console.log(`📊 API disponível em http://192.168.88.2:${PORT}/api`);
     });
   } catch (error) {
     console.error('❌ Erro ao inicializar servidor:', error);

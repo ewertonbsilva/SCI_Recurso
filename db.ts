@@ -13,7 +13,7 @@ let pool: mysql.Pool | null = null;
 export async function initializeDatabase(): Promise<mysql.Pool> {
     try {
         pool = mysql.createPool({
-            host: process.env.DB_HOST || 'localhost',
+            host: process.env.DB_HOST || '192.168.88.2',
             port: parseInt(process.env.DB_PORT || '3306'),
             database: process.env.DB_NAME || 'sci_recurso',
             user: process.env.DB_USER || 'root',

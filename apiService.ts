@@ -1,6 +1,6 @@
 import { Turno, Periodo, User, AtestadoMedico } from './types';
 
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = 'http://192.168.88.2:3001';
 
 class ApiService {
   private getAuthHeaders(): Record<string, string> {

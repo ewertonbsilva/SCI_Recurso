@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const validateToken = async (token: string) => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/me', {
+      const response = await fetch('http://192.168.88.2:3001/api/auth/me', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch('http://192.168.88.2:3001/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (username: string, nome: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch('http://192.168.88.2:3001/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -130,7 +130,15 @@ const Monitoramento: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
+  const [filtroStatus, setFiltroStatus] = useState<StatusEquipe | 'TODOS'>('TODOS');
   const { isFullscreen, setIsFullscreen } = useFullscreen();
+
+  // Resetar filtro para TODOS quando entrar em tela cheia
+  useEffect(() => {
+    if (isFullscreen) {
+      setFiltroStatus('TODOS');
+    }
+  }, [isFullscreen]);
 
   const toggleFullscreen = async () => {
     console.log('Botão fullscreen clicado. Estado atual:', isFullscreen);
@@ -242,6 +250,46 @@ const Monitoramento: React.FC = () => {
     };
 
     loadEquipes();
+    
+    // Adicionar ouvinte para atualizações em tempo real
+    const handleEquipeAtualizada = (event: CustomEvent) => {
+      const { idEquipe, updates, idTurno } = event.detail;
+      
+      // Se a atualização for do mesmo turno monitorado
+      if (idTurno === selectedTurno?.id_turno) {
+        setEquipes(prev => prev.map(e => 
+          e.id_equipe === idEquipe ? { ...e, ...updates } : e
+        ));
+      }
+    };
+    
+    const handleEquipeCriada = (event: CustomEvent) => {
+      const { equipe, idTurno } = event.detail;
+      
+      // Se a equipe for do mesmo turno monitorado
+      if (idTurno === selectedTurno?.id_turno) {
+        setEquipes(prev => [...prev, equipe]);
+      }
+    };
+    
+    const handleEquipeRemovida = (event: CustomEvent) => {
+      const { idEquipe, idTurno } = event.detail;
+      
+      // Se a equipe removida for do mesmo turno monitorado
+      if (idTurno === selectedTurno?.id_turno) {
+        setEquipes(prev => prev.filter(e => e.id_equipe !== idEquipe));
+      }
+    };
+    
+    window.addEventListener('equipeAtualizada', handleEquipeAtualizada as EventListener);
+    window.addEventListener('equipeCriada', handleEquipeCriada as EventListener);
+    window.addEventListener('equipeRemovida', handleEquipeRemovida as EventListener);
+    
+    return () => {
+      window.removeEventListener('equipeAtualizada', handleEquipeAtualizada as EventListener);
+      window.removeEventListener('equipeCriada', handleEquipeCriada as EventListener);
+      window.removeEventListener('equipeRemovida', handleEquipeRemovida as EventListener);
+    };
   }, [selectedTurno]);
 
   const currentTurno = selectedTurno;
@@ -353,27 +401,53 @@ const Monitoramento: React.FC = () => {
         </div>
       </div>
 
-      <div className={`min-h-[calc(100vh-200px)] space-y-16 transition-all duration-300 ${isFullscreen ? 'px-4 pb-4' : ''}`}>
+      <div className={`min-h-[calc(100vh-200px)] transition-all duration-300 ${isFullscreen ? 'px-4 pb-4 space-y-16' : 'space-y-6'}`}>
+        {/* Títulos clicáveis na mesma linha - apenas fora de tela cheia */}
+        {!isFullscreen && (
+          <div className="flex items-center gap-6 p-4">
+            {categorias.map(cat => {
+              const equipesNaCat = mappedEquipes.filter(e => e.status === cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setFiltroStatus(cat.id)}
+                  className={`flex items-center gap-2 font-black text-2xl uppercase tracking-tighter transition-all hover:scale-105 ${
+                    filtroStatus === cat.id
+                      ? 'text-primary dark:text-primary'
+                      : 'text-slate-800 dark:text-slate-100'
+                  }`}
+                >
+                  <div className={`h-8 w-2 rounded-full ${cat.color}`}></div>
+                  {cat.label} <span className="text-slate-400 ml-2 font-medium">{equipesNaCat.length}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {categorias.map(cat => {
           const equipesNaCat = mappedEquipes.filter(e => e.status === cat.id);
+          
+          // Em tela cheia, mostra sempre todos. Fora de tela cheia, aplica filtro
+          if (!isFullscreen && filtroStatus !== 'TODOS' && filtroStatus !== cat.id) {
+            return null;
+          }
+          
           return (
-            <section key={cat.id} className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className={`h-8 w-2 rounded-full ${cat.color}`}></div>
-                <h2 className="font-black text-2xl uppercase tracking-tighter text-slate-800 dark:text-slate-100">
-                  {cat.label} <span className="text-slate-400 ml-2 font-medium">{equipesNaCat.length}</span>
-                </h2>
-              </div>
-
-              <div className={`grid gap-6 transition-all duration-300 ${isFullscreen ? 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-                {equipesNaCat.map(e => (
-                  <EquipeCard key={e.id} equipe={e} />
+            <section key={cat.id} className={`${isFullscreen ? 'space-y-6' : 'space-y-2'}`}>
+              {/* Título apenas em tela cheia */}
+              {isFullscreen && (
+                <div className="flex items-center gap-4">
+                  <div className={`h-8 w-2 rounded-full ${cat.color}`}></div>
+                  <h2 className="font-black text-2xl uppercase tracking-tighter text-slate-800 dark:text-slate-100">
+                    {cat.label} <span className="text-slate-400 ml-2 font-medium">{equipesNaCat.length}</span>
+                  </h2>
+                </div>
+              )}
+              <div className={`grid gap-6 transition-all duration-300 ${isFullscreen ? 'grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'}`}>
+                {equipesNaCat.map(equipe => (
+                  <EquipeCard key={equipe.id} equipe={equipe} />
                 ))}
-                {equipesNaCat.length === 0 && (
-                  <div className="col-span-full py-16 text-center text-slate-400 dark:text-slate-600 italic bg-white dark:bg-slate-900/50 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
-                    Sem unidades operacionais neste status.
-                  </div>
-                )}
               </div>
             </section>
           );

@@ -38,7 +38,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   const [dataFilter, setDataFilter] = useState('');
   const [periodoFilter, setPeriodoFilter] = useState<Periodo | ''>('');
   
-  const itemsPerPage = 9; // 3 linhas x 3 colunas
+  const itemsPerPage = 25; // 5 linhas x 3 colunas
 
   // Monitorar mudanças no tema
   useEffect(() => {
@@ -182,7 +182,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">Gestão de <span style={{ color: themeColors.primary }}>Turnos</span></h2>
@@ -190,178 +190,183 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm sticky top-8">
-            <h3 className="text-xl font-black mb-8 uppercase tracking-tighter flex items-center gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Formulário Novo Período */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2 whitespace-nowrap">
               <Calendar style={{ color: themeColors.primary }} size={24} /> Novo Período
             </h3>
-            <form onSubmit={handleAddTurno} className="space-y-6">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Data do Plantão</label>
-                <input type="date" name="data" required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Período</label>
-                <select name="periodo" required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm font-bold outline-none cursor-pointer">
-                  <option value={Periodo.MANHA}>Manhã</option>
-                  <option value={Periodo.TARDE}>Tarde</option>
-                  <option value={Periodo.NOITE}>Noite</option>
-                </select>
-              </div>
-              <button type="submit" className="w-full text-white py-4 rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}><Plus size={18} /> Iniciar Turno</button>
-            </form>
           </div>
+          <form onSubmit={handleAddTurno} className="flex gap-4 items-center">
+            <div className="flex-1 space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Data do Plantão</label>
+              <input type="date" name="data" required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Período</label>
+              <select name="periodo" required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm font-bold outline-none cursor-pointer">
+                <option value={Periodo.MANHA}>Manhã</option>
+                <option value={Periodo.TARDE}>Tarde</option>
+                <option value={Periodo.NOITE}>Noite</option>
+              </select>
+            </div>
+            <button type="submit" className="px-8 py-4 text-white rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg whitespace-nowrap" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}><Plus size={18} /> Iniciar Turno</button>
+          </form>
         </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          {/* Seção de Filtros */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <Filter size={18} style={{ color: themeColors.primary }} />
-              <h3 className="text-sm font-black uppercase tracking-tighter">Filtros</h3>
+        {/* Seção de Filtros */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Filter size={18} style={{ color: themeColors.primary }} />
+            <h3 className="text-sm font-black uppercase tracking-tighter">Filtros</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-3">Data</label>
+              <input
+                type="date"
+                value={dataFilter}
+                onChange={(e) => {
+                  setDataFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl text-sm outline-none"
+                placeholder="Filtrar por data"
+              />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-3">Data</label>
-                <input
-                  type="date"
-                  value={dataFilter}
-                  onChange={(e) => setDataFilter(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl text-sm outline-none"
-                  placeholder="Filtrar por data"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-3">Período</label>
-                <select
-                  value={periodoFilter}
-                  onChange={(e) => setPeriodoFilter(e.target.value as Periodo | '')}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl text-sm font-bold outline-none cursor-pointer"
-                >
-                  <option value="">Todos</option>
-                  <option value={Periodo.MANHA}>Manhã</option>
-                  <option value={Periodo.TARDE}>Tarde</option>
-                  <option value={Periodo.NOITE}>Noite</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={clearFilters}
-                  className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-                >
-                  LIMPAR
-                </button>
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-3">Período</label>
+              <select
+                value={periodoFilter}
+                onChange={(e) => {
+                  setPeriodoFilter(e.target.value as Periodo | '');
+                  setCurrentPage(1);
+                }}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl text-sm font-bold outline-none cursor-pointer"
+              >
+                <option value="">Todos</option>
+                <option value={Periodo.MANHA}>Manhã</option>
+                <option value={Periodo.TARDE}>Tarde</option>
+                <option value={Periodo.NOITE}>Noite</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={clearFilters}
+                className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                LIMPAR
+              </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Lista de Turnos com Paginação */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 ml-4">
-                Turnos Recentes {filteredTurnos.length > 0 && `(${filteredTurnos.length} encontrados)`}
-              </h3>
-              {loading && <span className="text-xs" style={{ color: themeColors.primary }}>Carregando...</span>}
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {paginatedTurnos.map((t) => (
-                <div
-                  key={t.id_turno}
-                  onClick={() => {
-                    if (t.id_turno) {
-                      onSelectTurno(t.id_turno);
-                    } else {
-                      console.error('Tentativa de navegar para turno sem ID:', t);
-                      onNotify?.("Erro: Turno sem identificador válido.", "error");
-                    }
-                  }}
-                  className="group bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all border-l-4" style={{ borderLeftColor: themeColors.primary }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}>
-                        <Clock size={18} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-black text-slate-900 dark:text-white text-sm tracking-tighter">
-                          {t.data ? new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data inválida'}
-                        </p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{t.periodo}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={(e) => removeTurno(e, t.id_turno)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                        <Trash2 size={16} />
-                      </button>
-                      <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-all" style={{ color: themeColors.primary }} />
-                    </div>
+      {/* Lista de Turnos com Paginação */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 ml-4">
+            Turnos Recentes {filteredTurnos.length > 0 && `(${filteredTurnos.length} encontrados)`}
+          </h3>
+          {loading && <span className="text-xs" style={{ color: themeColors.primary }}>Carregando...</span>}
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+          {paginatedTurnos.map((t) => (
+            <div
+              key={t.id_turno}
+              onClick={() => {
+                if (t.id_turno) {
+                  onSelectTurno(t.id_turno);
+                } else {
+                  console.error('Tentativa de navegar para turno sem ID:', t);
+                  onNotify?.("Erro: Turno sem identificador válido.", "error");
+                }
+              }}
+              className="group bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all border-l-4" style={{ borderLeftColor: themeColors.primary }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}>
+                    <Clock size={18} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-black text-slate-900 dark:text-white text-sm tracking-tighter">
+                      {t.data ? new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data inválida'}
+                    </p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{t.periodo}</p>
                   </div>
                 </div>
-              ))}
+                <div className="flex items-center gap-2">
+                  <button onClick={(e) => removeTurno(e, t.id_turno)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                    <Trash2 size={16} />
+                  </button>
+                  <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-all" style={{ color: themeColors.primary }} />
+                </div>
+              </div>
             </div>
-
-            {/* Mensagem quando não há turnos */}
-            {!loading && paginatedTurnos.length === 0 && (
-              <div className="col-span-full py-20 text-center text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-                {filteredTurnos.length === 0 
-                  ? "Nenhum turno encontrado. Comece criando um novo período ou ajuste os filtros."
-                  : "Nenhum turno encontrado nesta página. Tente outras páginas ou ajuste os filtros."
-                }
-              </div>
-            )}
-
-            {/* Controles de Paginação */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-6">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`px-3 py-1 rounded-lg text-sm font-black transition-all ${
-                        currentPage === pageNum
-                          ? 'text-white shadow-lg'
-                          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                      }`}
-                      style={currentPage === pageNum ? { backgroundColor: themeColors.primary } : {}}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-                
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronRightIcon size={16} />
-                </button>
-              </div>
-            )}
-          </div>
+          ))}
         </div>
+
+        {/* Mensagem quando não há turnos */}
+        {!loading && paginatedTurnos.length === 0 && (
+          <div className="col-span-full py-20 text-center text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+            {filteredTurnos.length === 0 
+              ? "Nenhum turno encontrado. Comece criando um novo período ou ajuste os filtros."
+              : "Nenhum turno encontrado nesta página. Tente outras páginas ou ajuste os filtros."
+            }
+          </div>
+        )}
+
+        {/* Controles de Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`px-3 py-1 rounded-lg text-sm font-black transition-all ${
+                    currentPage === pageNum
+                      ? 'text-white shadow-lg'
+                      : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                  style={currentPage === pageNum ? { backgroundColor: themeColors.primary } : {}}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRightIcon size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

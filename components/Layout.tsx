@@ -80,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
   const filteredNavItems = navItems.filter(item => user && item.roles.includes(user.role));
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-[#020617] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'} grid grid-cols-[auto_1fr] transition-colors duration-500`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-[#020617] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'} grid grid-cols-[288px_1fr] transition-colors duration-500`}>
       {/* Mobile Header */}
       <header className={`md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md p-4 flex justify-between items-center sticky top-0 z-50 transition-all duration-300 ${fullscreen ? 'opacity-0 pointer-events-none h-0 overflow-hidden' : ''}`}>
         <h1 className="text-xl font-black flex items-center gap-2 tracking-tighter uppercase">
@@ -95,7 +95,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-[60] w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800/50 transform transition-transform duration-500 ease-in-out md:relative md:translate-x-0
+        h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800/50 transform transition-transform duration-500 ease-in-out fixed md:static md:translate-x-0 flex flex-col
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         ${fullscreen ? 'opacity-0 pointer-events-none md:opacity-0 md:pointer-events-none' : ''}
       `}>
@@ -109,7 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
           <p className="text-[10px] text-slate-400 mt-2 font-black uppercase tracking-[0.2em]">Centro de Comando</p>
         </div>
 
-        <nav className="mt-4 px-4 space-y-2 overflow-y-auto h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-slate-100 dark:scrollbar-thumb-blue-400 dark:scrollbar-track-slate-800">
+        <nav className="mt-4 px-4 space-y-2 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-slate-100 dark:scrollbar-thumb-blue-400 dark:scrollbar-track-slate-800">
           {filteredNavItems.map((item) => (
             <button
               key={item.id}
@@ -132,7 +132,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
           ))}
         </nav>
 
-        <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-white dark:from-slate-900 via-white dark:via-slate-900 to-transparent">
+        <div className="p-6 bg-gradient-to-t from-white dark:from-slate-900 via-white dark:via-slate-900 to-transparent">
           {/* Theme Selector */}
           <div className="mb-4 relative">
             <button
@@ -190,7 +190,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
 
       {/* Main Content */}
       <main className={`overflow-x-hidden relative transition-all duration-300 ${fullscreen ? 'p-0' : 'p-6 md:p-12'}`}>
-        <div className="max-w-6xl mx-auto page-transition min-h-0">
+        <div className="w-full mx-auto page-transition min-h-0">
           {children}
         </div>
       </main>

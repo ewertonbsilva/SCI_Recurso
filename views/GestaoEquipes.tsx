@@ -16,7 +16,10 @@ import {
   Users,
   UserPlus,
   Type,
-  UserCheck
+  UserCheck,
+  ChevronLeft,
+  ChevronRightIcon,
+  Filter
 } from 'lucide-react';
 import { Equipe, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO } from '../types';
 import { ToastType } from '../components/Toast';
@@ -37,6 +40,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   const [civis, setCivis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTurnoId, setSelectedTurnoId] = useState('');
+  
+  // Estados para paginação e filtro
+  const [currentPage, setCurrentPage] = useState(1);
+  const [dataFilter, setDataFilter] = useState('');
+  const itemsPerPage = 24; // 6 colunas x 4 linhas = 24 equipes por página
 
   // Modais de atribuição
   const [isChefeModalOpen, setIsChefeModalOpen] = useState<{ open: boolean, idEquipe: string | null }>({ open: false, idEquipe: null });
@@ -60,6 +68,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    // Resetar para página 1 quando mudar o filtro
+    setCurrentPage(1);
+  }, [dataFilter]);
 
   useEffect(() => {
     // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
@@ -87,6 +100,28 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Lógica de paginação e filtro
+  const filteredTurnos = turnos.filter(turno => {
+    if (!dataFilter) return true;
+    const dataFormatada = new Date(turno.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    const dataFiltro = new Date(dataFilter).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    return dataFormatada === dataFiltro || 
+           turno.periodo.toLowerCase().includes(dataFilter.toLowerCase());
+  });
+
+  const totalPages = Math.ceil(filteredTurnos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedTurnos = filteredTurnos.slice(startIndex, startIndex + itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const clearFilters = () => {
+    setDataFilter('');
+    setCurrentPage(1);
   };
 
   const loadTurnoSpecificData = async (idTurno: string) => {
@@ -126,6 +161,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     if (immediate) {
       try {
         await apiService.updateEquipe(id, updates);
+        
+        // Emitir evento para atualizar monitoramento em tempo real
+        window.dispatchEvent(new CustomEvent('equipeAtualizada', { 
+          detail: { idEquipe: id, updates, idTurno: selectedTurnoId } 
+        }));
       } catch (error) {
         onNotify?.("Erro ao salvar alterações.", "error");
       }
@@ -137,6 +177,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
       debounceTimerRef.current[id] = setTimeout(async () => {
         try {
           await apiService.updateEquipe(id, updates);
+          
+          // Emitir evento para atualizar monitoramento em tempo real
+          window.dispatchEvent(new CustomEvent('equipeAtualizada', { 
+            detail: { idEquipe: id, updates, idTurno: selectedTurnoId } 
+          }));
         } catch (error) {
           onNotify?.("Erro ao salvar alterações.", "error");
         }
@@ -170,9 +215,14 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     };
 
     try {
-      await apiService.createEquipe(newEquipe);
+      const createdEquipe = await apiService.createEquipe(newEquipe);
       await loadTurnoSpecificData(selectedTurnoId);
       onNotify?.("Equipe criada com sucesso!", "success");
+      
+      // Emitir evento para atualizar monitoramento em tempo real
+      window.dispatchEvent(new CustomEvent('equipeCriada', { 
+        detail: { equipe: createdEquipe, idTurno: selectedTurnoId } 
+      }));
     } catch (error) {
       onNotify?.("Erro ao criar equipe.", "error");
     }
@@ -184,6 +234,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
       await apiService.deleteEquipe(id);
       setEquipes(prev => prev.filter(e => e.id_equipe !== id));
       onNotify?.("Equipe removida.", "warning");
+      
+      // Emitir evento para atualizar monitoramento em tempo real
+      window.dispatchEvent(new CustomEvent('equipeRemovida', { 
+        detail: { idEquipe: id, idTurno: selectedTurnoId } 
+      }));
     } catch (error) {
       onNotify?.("Erro ao remover equipe.", "error");
     }
@@ -299,41 +354,111 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   if (!selectedTurnoId) {
     return (
       <div className="space-y-10 page-transition">
-        <div>
-          <h2 className="text-4xl font-black tracking-tighter uppercase text-slate-900 dark:text-white">
-            Gestão de <span className="text-primary">Equipes</span>
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Escolha um turno para configurar o dispositivo.</p>
+        {/* Título e filtro na mesma linha */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 className="text-4xl font-black tracking-tighter uppercase text-slate-900 dark:text-white">
+              Gestão de <span className="text-primary">Equipes</span>
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Escolha um turno para configurar o dispositivo.</p>
+          </div>
+          
+          {/* Filtro de datas */}
+          <div className="relative min-w-[250px]">
+            <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+            <div className="flex">
+              <input
+                type="date"
+                placeholder="Filtrar por data (dd/mm/aaaa)..."
+                value={dataFilter}
+                onChange={(e) => setDataFilter(e.target.value)}
+                className="flex-1 pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-l-xl text-sm font-black outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <button
+                onClick={clearFilters}
+                className="ml-2 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-l-xl text-sm font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {turnos.sort((a, b) => b.data.localeCompare(a.data)).map((t) => (
+        {/* Grid de turnos com paginação - 6 colunas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
+          {paginatedTurnos.sort((a, b) => b.data.localeCompare(a.data)).map((t) => (
             <button
               key={t.id_turno}
               onClick={() => setSelectedTurnoId(t.id_turno)}
-              className="group relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:scale-[1.03] transition-all text-left overflow-hidden"
+              className="group relative bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all text-left overflow-hidden"
             >
               <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20 group-hover:opacity-100 transition-opacity"></div>
 
-              <div className="flex justify-between items-start mb-6">
-                <div className={`p-4 rounded-2xl ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}>
-                  <Clock size={24} />
+              <div className="flex justify-between items-start mb-4">
+                <div className={`p-3 rounded-xl ${t.periodo === Periodo.MANHA ? 'bg-orange-50 text-orange-500 dark:bg-orange-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}>
+                  <Clock size={20} />
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl text-center">
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Equipes</p>
-                  <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">
+                <div className="bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg text-center">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Equipes</p>
+                  <p className="text-base font-black text-slate-900 dark:text-white leading-none">
                     {t.total_equipes || 0}
                   </p>
                 </div>
               </div>
 
-              <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-1">
+              <p className="text-lg font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-1">
                 {new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
               </p>
               <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{t.periodo}</p>
             </button>
           ))}
         </div>
+
+        {/* Controles de paginação */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-8">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = i + 1;
+                const isActive = pageNum === currentPage;
+                const isNearCurrent = Math.abs(pageNum - currentPage) <= 2;
+                const shouldShow = pageNum === 1 || pageNum === totalPages || isNearCurrent;
+                
+                return shouldShow ? (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-4 py-2 rounded-lg text-sm font-black transition-all ${
+                      isActive
+                        ? 'bg-primary text-white'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ) : (
+                  <div key={pageNum} className="w-10" />
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+            >
+              <ChevronRightIcon size={20} />
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -368,7 +493,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
         {equipes.map((equipe) => {
           const statusCfg = getStatusConfig(equipe.status);
           const chefe = militares.find(m => m.matricula === equipe.matricula_militar);
