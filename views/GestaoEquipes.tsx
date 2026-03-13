@@ -369,14 +369,14 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
             <div className="flex">
               <input
                 type="date"
-                placeholder="Filtrar por data (dd/mm/aaaa)..."
+                placeholder="Filtrar por data..."
                 value={dataFilter}
                 onChange={(e) => setDataFilter(e.target.value)}
-                className="flex-1 pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-l-xl text-sm font-black outline-none focus:ring-2 focus:ring-primary/20"
+                className="flex-1 pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-l-xl text-xs font-bold outline-none"
               />
               <button
                 onClick={clearFilters}
-                className="ml-2 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-l-xl text-sm font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                className="ml-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-r-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
               >
                 Limpar
               </button>

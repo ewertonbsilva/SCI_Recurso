@@ -132,6 +132,7 @@ router.put('/chamada-civil/:id', async (req: any, res: any, next: any) => {
         if (updates.id_turno !== undefined) { fields.push('id_turno = ?'); values.push(updates.id_turno); }
         if (updates.id_civil !== undefined) { fields.push('id_civil = ?'); values.push(updates.id_civil); }
         if (updates.quant_civil !== undefined) { fields.push('quant_civil = ?'); values.push(updates.quant_civil); }
+        if (updates.saida !== undefined) { fields.push('saida = ?'); values.push(updates.saida); }
 
         if (fields.length === 0) {
             return res.status(400).json({ error: 'Nenhum campo fornecido para atualização' });

@@ -75,26 +75,45 @@ const getMilitarActiveAtestado = (matricula: string, atestados: AtestadoMedico[]
   });
 };
 
-const MilitarCard: React.FC<{ militar: CadastroMilitar, atestados: AtestadoMedico[], themeColors: any }> = ({ militar, atestados, themeColors }) => {
+const MilitarCard: React.FC<{ militar: CadastroMilitar, atestados: AtestadoMedico[], themeColors: any, onEdit?: (m: CadastroMilitar) => void, onRemove?: (e: React.MouseEvent, matricula: string) => void }> = ({ militar, atestados, themeColors, onEdit, onRemove }) => {
   const activeAtestado = getMilitarActiveAtestado(militar.matricula, atestados);
   const restricted = isMilitarRestricted(militar, atestados);
 
   return (
-    <div className="absolute top-0 right-full mr-4 w-80 p-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2.5rem] z-[100] hidden group-hover:block animate-in fade-in slide-in-from-right-4 duration-300 pointer-events-none">
-      <div className="flex items-start justify-between mb-4">
+    <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm group">
+      <div className="flex items-start justify-between mb-3">
         <div>
-          <h4 className="font-black text-slate-900 dark:text-white text-base leading-tight">{militar.nome_completo}</h4>
-          <p className="text-[10px] text-blue-500 font-black uppercase mt-1 tracking-widest">{militar.nome_posto_grad} {militar.nome_guerra} • {militar.nome_forca || 'N/A'}</p>
+          <h4 className="font-black text-slate-900 dark:text-white text-sm leading-tight">{militar.nome_completo}</h4>
+          <p className="text-[9px] text-blue-500 font-black uppercase mt-1 tracking-wider">{militar.nome_posto_grad} {militar.nome_guerra} • {militar.nome_forca || 'N/A'}</p>
+        </div>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+          {onEdit && (
+            <button 
+              onClick={() => onEdit(militar)} 
+              className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800" 
+              style={{ color: themeColors.primary }}
+            >
+              <Edit2 size={14} />
+            </button>
+          )}
+          {onRemove && (
+            <button 
+              onClick={(e) => onRemove(e, militar.matricula)} 
+              className="p-1.5 text-slate-300 rounded-lg transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="space-y-3.5 text-xs">
+      <div className="space-y-3 text-xs">
         <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
           <span className="text-slate-400 font-bold uppercase text-[9px]">Matrícula / RG</span>
           <span className="text-slate-800 dark:text-slate-200 font-mono font-bold">{militar.matricula}</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className={`flex items-center gap-2 p-3 rounded-2xl border ${militar.cpoe ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-400'}`}>
             <Ship size={16} />
             <span className="font-bold">CPOE</span>
@@ -103,34 +122,109 @@ const MilitarCard: React.FC<{ militar: CadastroMilitar, atestados: AtestadoMedic
             <Waves size={16} />
             <span className="font-bold">CMAUT</span>
           </div>
-        </div>
-
-        <div className="pt-2">
           {restricted ? (
             <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl">
-              <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold mb-1">
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold">
                 <ShieldAlert size={16} />
-                <span className="text-[10px] uppercase">{activeAtestado ? 'ATESTADO MÉDICO ATIVO' : 'RESTRIÇÃO MÉDICA'}</span>
+                <span className="text-[9px] uppercase">{activeAtestado ? 'ATESTADO ATIVO' : 'RESTRIÇÃO'}</span>
               </div>
-              <p className="text-[11px] text-red-600 dark:text-red-300 italic">
-                {activeAtestado
-                  ? `${activeAtestado.motivo} (Até ${(() => {
-                    const inicio = parseLocalDate(activeAtestado.data_inicio);
-                    const fim = new Date(inicio);
-                    fim.setDate(inicio.getDate() + (activeAtestado.dias - 1));
-                    return fim.toLocaleDateString();
-                  })()})`
-                  : (militar.descRestMed || 'Nenhuma descrição.')}
-              </p>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
               <CheckCircle2 size={16} />
-              <span className="text-[10px] uppercase">PRONTO PARA SERVIÇO</span>
+              <span className="text-[9px] uppercase">PRONTO</span>
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+const CivilCard: React.FC<{ civil: CadastroCivil, themeColors: any, onEdit?: (c: CadastroCivil) => void, onRemove?: (e: React.MouseEvent, id: number) => void }> = ({ civil, themeColors, onEdit, onRemove }) => {
+  return (
+    <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm group">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h4 className="font-black text-slate-900 dark:text-white text-sm leading-tight">{civil.nome_completo}</h4>
+          <p className="text-[9px] text-slate-400 uppercase mt-1 tracking-wider">{civil.contato}</p>
+        </div>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+          {onEdit && (
+            <button 
+              onClick={() => onEdit(civil)} 
+              className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800" 
+              style={{ color: themeColors.primary }}
+            >
+              <Edit2 size={14} />
+            </button>
+          )}
+          {onRemove && (
+            <button 
+              onClick={(e) => onRemove(e, civil.id_civil)} 
+              className="p-1.5 text-slate-300 rounded-lg transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {civil.motorista && <UserCheck size={14} className="text-emerald-500" />}
+        {civil.modelo_veiculo && <span className="text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-tighter" style={{ backgroundColor: `${themeColors.primary}15`, color: themeColors.primary }}>{civil.modelo_veiculo}</span>}
+      </div>
+    </div>
+  );
+};
+
+const AtestadoCard: React.FC<{ atestado: AtestadoMedico, militar?: CadastroMilitar, themeColors: any, postos: PostoGrad[], onEdit?: (at: AtestadoMedico) => void, onRemove?: (e: React.MouseEvent, id: number) => void }> = ({ atestado, militar, themeColors, postos, onEdit, onRemove }) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const inicioDate = parseLocalDate(atestado.data_inicio);
+  inicioDate.setHours(0, 0, 0, 0);
+  const fim = new Date(inicioDate);
+  fim.setDate(inicioDate.getDate() + atestado.dias - 1);
+  fim.setHours(23, 59, 59, 999);
+  const isActive = today >= inicioDate && today <= fim;
+
+  return (
+    <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm group">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h4 className="font-black text-slate-900 dark:text-white text-sm leading-tight">
+            {(() => {
+              const posto = postos.find(p => p.id_posto_grad === militar?.id_posto_grad);
+              return `${posto?.nome_posto_grad || ''} ${militar?.nome_guerra || 'N/A'}`;
+            })()}
+          </h4>
+          <p className="text-[9px] text-slate-400 uppercase mt-1 tracking-wider">{inicioDate.toLocaleDateString()} — {fim.toLocaleDateString()} ({atestado.dias} dias)</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400'}`}>
+            {isActive ? 'ATIVO' : 'EXPIRADO'}
+          </div>
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+            {onEdit && (
+              <button 
+                onClick={() => onEdit(atestado)} 
+                className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800" 
+                style={{ color: themeColors.primary }}
+              >
+                <Edit2 size={14} />
+              </button>
+            )}
+            {onRemove && (
+              <button 
+                onClick={(e) => onRemove(e, atestado.id)} 
+                className="p-1.5 text-slate-300 rounded-lg transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider italic">{atestado.motivo}</p>
     </div>
   );
 };
@@ -157,7 +251,7 @@ const Cadastros: React.FC = () => {
   
   // Estados de paginação
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = activeSubTab === 'civil' ? 12 : activeSubTab === 'atestado' ? 15 : 9;
   
   // Estados de dados
   const [loading, setLoading] = useState(true);
@@ -643,7 +737,7 @@ const Cadastros: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         <div className="lg:col-span-1">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-center mb-6">
@@ -654,7 +748,7 @@ const Cadastros: React.FC = () => {
             </div>
 
             {activeSubTab === 'atestado' ? (
-              <form onSubmit={handleSaveAtestado} className="space-y-4">
+              <form onSubmit={handleSaveAtestado} className="space-y-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Militar</label>
                   <div className="relative busca-atestado-container">
@@ -721,7 +815,7 @@ const Cadastros: React.FC = () => {
                 <button type="submit" className="w-full text-white py-4 rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}><Plus size={18} /> Registrar Atestado</button>
               </form>
             ) : (
-              <form onSubmit={activeSubTab === 'militar' ? handleSaveMilitar : handleSaveCivil} className="space-y-4">
+              <form onSubmit={activeSubTab === 'militar' ? handleSaveMilitar : handleSaveCivil} className="space-y-3">
                 {activeSubTab === 'militar' ? (
                   <>
                     <div className="grid grid-cols-2 gap-4">
@@ -863,13 +957,13 @@ const Cadastros: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-6" style={{ minHeight: '600px' }}>
+        <div className="lg:col-span-3 space-y-6" style={{ minHeight: '600px' }}>
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group">
             <Search className="text-slate-400 transition-colors ml-4" size={20} style={{ color: themeColors.primary }} />
             <input placeholder="Filtre por nome, matrícula ou unidade..." className="bg-transparent border-none focus:ring-0 w-full outline-none text-sm font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-visible">
+          <div className="lg:col-span-3 bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-visible">
             {loading ? (
               <div className="py-20 text-center text-slate-400 font-medium">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: themeColors.primary }}></div>
@@ -877,121 +971,71 @@ const Cadastros: React.FC = () => {
               </div>
             ) : (
               <>
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                    <tr>
-                      <th className="px-8 py-5 font-black text-slate-400 uppercase text-[10px] tracking-widest">{activeSubTab === 'atestado' ? 'Militar / Período' : 'Identificação'}</th>
-                      <th className="px-8 py-5 font-black text-slate-400 uppercase text-[10px] tracking-widest text-center">{activeSubTab === 'atestado' ? 'Status' : 'Perfil'}</th>
-                      <th className="px-8 py-5 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {activeSubTab === 'militar' ? (
-                      (paginatedData as CadastroMilitar[]).map((m) => {
-                        const restricted = isMilitarRestricted(m, atestados);
-                        return (
-                          <tr key={m.matricula} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === m.matricula ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                            <td className="px-8 py-5 relative">
-                              <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white cursor-help">
-                                <span>{m.nome_posto_grad} {m.nome_guerra}</span>
-                                <Info size={12} className="text-slate-300 group-hover:text-blue-500 ml-1" title={`Força: ${m.nome_forca || 'N/A'} • UBM: ${m.nome_ubm || 'Sem UBM'}`} />
-                              </div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{m.matricula} • {m.nome_forca || 'N/A'} • {m.nome_ubm || 'Sem UBM'}</div>
-                              <MilitarCard militar={m} atestados={atestados} themeColors={themeColors} />
-                            </td>
-                            <td className="px-8 py-5 text-center">
-                              <div className="flex justify-center gap-1.5">
-                                {m.cpoe && <div className="w-2 h-2 rounded-full bg-emerald-500" title="CPOE"></div>}
-                                {m.mergulhador && <div className="w-2 h-2 rounded-full bg-blue-500" title="CMAUT"></div>}
-                                {restricted && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="Restrição Ativa"></div>}
-                              </div>
-                            </td>
-                            <td className="px-8 py-5 text-right">
-                              <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditMilitar(m); }} className="p-2 text-slate-300 rounded-xl transition-all" style={{ color: themeColors.primary }}><Edit2 size={18} /></button>
-                                <button onClick={(e) => removeMilitar(e, m.matricula)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"><Trash2 size={18} /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : activeSubTab === 'civil' ? (
-                      (paginatedData as CadastroCivil[]).map((c) => (
-                        <tr key={c.id_civil} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === c.id_civil ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                          <td className="px-8 py-5">
-                            <div className="font-black text-slate-900 dark:text-white">
-                              <div>{c.nome_completo}</div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{c.contato} • {c.nome_orgao || 'N/A'}</div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5 text-center">
-                            <div className="flex flex-wrap justify-center gap-2">
-                              {c.motorista && <UserCheck size={16} className="text-emerald-500" />}
-                              {c.modelo_veiculo && <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter" style={{ backgroundColor: `${themeColors.primary}10`, color: themeColors.primary }}>{c.modelo_veiculo}</span>}
-                            </div>
-                          </td>
-                          <td className="px-8 py-5 text-right">
-                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditCivil(c); }} className="p-2 text-slate-300 rounded-xl transition-all" style={{ color: themeColors.primary }}><Edit2 size={18} /></button>
-                              <button onClick={(e) => removeCivil(e, c.id_civil)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"><Trash2 size={18} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      (paginatedData as AtestadoMedico[]).map((at) => {
-                        const m = militares.find(mil => mil.matricula === at.matricula);
-
-                        // Verificar se este atestado específico está ativo
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const inicioDate = parseLocalDate(at.data_inicio);
-                        inicioDate.setHours(0, 0, 0, 0);
-                        const fim = new Date(inicioDate);
-                        fim.setDate(inicioDate.getDate() + at.dias - 1);
-                        fim.setHours(23, 59, 59, 999);
-                        const isActive = today >= inicioDate && today <= fim;
-
-                        return (
-                          <tr key={at.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-                            <td className="px-8 py-5">
-                              <div className="font-black text-slate-900 dark:text-white uppercase leading-tight">
-                                {(() => {
-                                  const posto = postos.find(p => p.id_posto_grad === m.id_posto_grad);
-                                  return posto?.nome_posto_grad || '';
-                                })()} {m?.nome_guerra}
-                              </div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">{inicioDate.toLocaleDateString()} — {fim.toLocaleDateString()} ({at.dias} dias)</div>
-                              <div className="text-[9px] text-red-500 font-bold uppercase mt-1 italic">{at.motivo}</div>
-                            </td>
-                            <td className="px-8 py-5 text-center">
-                              <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isActive ? 'bg-red-100 text-red-700 dark:bg-red-900/30' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>{isActive ? 'Ativo' : 'Expirado'}</span>
-                            </td>
-                            <td className="px-8 py-5 text-right">
-                              <button onClick={(e) => removeAtestado(e, at.id)} className="p-2 text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18} /></button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                    {(activeSubTab === 'militar' ? filteredMilitares : activeSubTab === 'civil' ? filteredCivis : filteredAtestados).length === 0 && (
-                      <tr><td colSpan={3} className="py-20 text-center text-slate-400 font-medium italic">Nenhum registro encontrado.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-                
-                {/* Componente de Paginação */}
-                {totalPages > 1 && (
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                    themeColors={themeColors}
-                  />
+                {activeSubTab === 'militar' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(paginatedData as CadastroMilitar[]).map((m) => {
+                      const restricted = isMilitarRestricted(m, atestados);
+                      return (
+                        <div key={m.matricula} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === m.matricula ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                          <MilitarCard 
+                            militar={m} 
+                            atestados={atestados} 
+                            themeColors={themeColors} 
+                            onEdit={handleEditMilitar}
+                            onRemove={removeMilitar}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : activeSubTab === 'civil' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(paginatedData as CadastroCivil[]).map((c) => {
+                      return (
+                        <div key={c.id_civil} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === c.id_civil ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                          <CivilCard 
+                            civil={c} 
+                            themeColors={themeColors} 
+                            onEdit={handleEditCivil}
+                            onRemove={removeCivil}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(paginatedData as AtestadoMedico[]).map((at) => {
+                      const m = militares.find(mil => mil.matricula === at.matricula);
+                      return (
+                        <div key={at.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                          <AtestadoCard 
+                            atestado={at} 
+                            militar={m} 
+                            themeColors={themeColors} 
+                            postos={postos}
+                            onRemove={removeAtestado}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </>
             )}
           </div>
+
+          {/* Componente de Paginação */}
+          {totalPages > 1 && (
+            <div className="lg:col-span-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                themeColors={themeColors}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

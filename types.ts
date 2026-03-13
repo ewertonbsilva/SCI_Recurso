@@ -215,6 +215,7 @@ export interface ChamadaCivil {
   id_turno: string;
   id_civil: string;
   quant_civil: number;
+  saida?: string;
   created_at?: string;
   updated_at?: string;
 }
