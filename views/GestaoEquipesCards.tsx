@@ -3,6 +3,7 @@ import { ArrowLeft, Users, User, Truck, Plus, Edit2, Trash2, Shield, CheckCircle
 import { Equipe, StatusEquipe, ChamadaMilitar, ChamadaCivil, Turno } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface GestaoEquipesProps {
   id_turno: string;
@@ -29,6 +30,21 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ id_turno, onBack, onNotif
     id_chamada_civil: '',
     status: StatusEquipe.LIVRE,
     bairro: ''
+  });
+
+  // Estados do modal de confirmação
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
   });
 
   useEffect(() => {
@@ -107,16 +123,22 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ id_turno, onBack, onNotif
   };
 
   const handleDelete = async (equipe: Equipe) => {
-    if (!confirm(`Deseja remover a equipe "${equipe.nome_equipe}"?`)) return;
-    
-    try {
-      await apiService.deleteEquipe(equipe.id_equipe);
-      onNotify?.('Equipe removida com sucesso!', 'success');
-      loadDados();
-    } catch (error) {
-      console.error('Erro ao remover equipe:', error);
-      onNotify?.('Erro ao remover equipe', 'error');
-    }
+    setModalConfig({
+      isOpen: true,
+      title: 'Remover Equipe',
+      message: `Tem certeza que deseja remover a equipe ${equipe.nome_equipe}? Esta ação não poderá ser desfeita.`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteEquipe(equipe.id_equipe);
+          onNotify?.('Equipe removida com sucesso!', 'success');
+          loadDados();
+        } catch (error) {
+          console.error('Erro ao remover equipe:', error);
+          onNotify?.('Erro ao remover equipe', 'error');
+        }
+      },
+      type: 'danger'
+    });
   };
 
   const handleAssignMilitar = async (idEquipe: string, matricula: string) => {
@@ -573,6 +595,18 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ id_turno, onBack, onNotif
           </div>
         </div>
       )}
+      
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText="Remover"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

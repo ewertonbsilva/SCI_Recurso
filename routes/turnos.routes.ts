@@ -164,6 +164,27 @@ router.delete('/chamada-civil/:id', async (req: any, res: any, next: any) => {
     } catch (err) { next(err); }
 });
 
+// GET /api/equipes
+router.get('/equipes', async (req: any, res: any, next: any) => {
+    try {
+        const result = await getConnection().query(`
+            SELECT e.*, t.data as turno_data, t.periodo as turno_periodo,
+              cm.matricula as matricula_militar, m.nome_guerra as nome_militar, pg.nome_posto_grad,
+              cc.quant_civil, cc.id_civil, c.nome_completo as nome_motorista, c.modelo_veiculo as vtr_modelo, c.contato as tel_mot,
+              (SELECT COUNT(*) FROM componentes_equipe ce WHERE ce.id_equipe = e.id_equipe) as total_componentes
+       FROM equipes e
+       LEFT JOIN turnos t ON e.id_turno = t.id_turno
+       LEFT JOIN chamada_militar cm ON e.id_chamada_militar = cm.id_chamada_militar
+       LEFT JOIN militares m ON cm.matricula = m.matricula
+       LEFT JOIN posto_grad pg ON m.id_posto_grad = pg.id_posto_grad
+       LEFT JOIN chamada_civil cc ON e.id_chamada_civil = cc.id_chamada_civil
+       LEFT JOIN civis c ON cc.id_civil = c.id_civil
+       ORDER BY t.data DESC, e.nome_equipe ASC
+        `);
+        res.json(result[0]);
+    } catch (err) { next(err); }
+});
+
 // GET /api/equipes/:idTurno
 router.get('/equipes/:idTurno', async (req: any, res: any, next: any) => {
     try {

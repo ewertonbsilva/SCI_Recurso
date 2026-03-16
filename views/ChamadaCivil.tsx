@@ -4,6 +4,7 @@ import { UserPlus, Trash2, Calendar, Check, Users, UserCircle, X, Download } fro
 import { apiService } from '../apiService';
 import { ChamadaCivil, StatusEquipe } from '../types';
 import { ToastType } from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface ChamadaCivilProps {
   onNotify?: (msg: string, type: ToastType) => void;
@@ -19,6 +20,21 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
   const [pendingCivis, setPendingCivis] = useState<string[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Estados do modal de confirmação
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
 
   useEffect(() => {
     loadInitialData();
@@ -111,22 +127,35 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
   };
 
   const removeCivilChamada = async (id: string) => {
-    if (!confirm("Remover este civil da escala?")) return;
-    try {
-      await apiService.deleteChamadaCivil(id);
-      setChamadaCivil(prev => prev.filter(c => c.id_chamada_civil !== id));
-      onNotify?.("Registro removido.", "warning");
-    } catch (error) {
-      onNotify?.("Erro ao remover registro.", "error");
-    }
+    const chamada = chamadaCivil.find(c => c.id_chamada_civil === id);
+    if (!chamada) return;
+    
+    const civil = civis.find(c => c.id_civil === chamada.id_civil);
+    const civilNome = civil ? civil.nome_completo : 'Civil não encontrado';
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Remover Civil da Chamada',
+      message: `Tem certeza que deseja remover ${civilNome} da chamada deste turno?`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteChamadaCivil(id);
+          setChamadaCivil(prev => prev.filter(c => c.id_chamada_civil !== id));
+          onNotify?.("Registro removido.", "warning");
+        } catch (error) {
+          onNotify?.("Erro ao remover registro.", "error");
+        }
+      },
+      type: 'warning'
+    });
   };
 
   const sortedTurnos = [...turnos].sort((a, b) => b.data.localeCompare(a.data));
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div>
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+        <div className="w-full md:w-auto flex flex-col items-center md:items-start">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <UserCircle className="text-emerald-600" /> Chamada Civil
           </h2>
@@ -203,7 +232,38 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            {/* Mobile Cards Layout */}
+            <div className="sm:hidden space-y-3">
+              {chamadaCivil.map(cc => {
+                const c = civis.find(civ => civ.id_civil === cc.id_civil);
+                return c ? (
+                  <div key={cc.id_chamada_civil} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="font-bold text-slate-900 dark:text-white text-sm">{c.nome_completo}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{c.nome_orgao || c.orgao_origem || 'N/A'}</div>
+                      </div>
+                      <button onClick={() => removeCivilChamada(cc.id_chamada_civil)} className="text-slate-300 hover:text-red-500 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-bold text-slate-400">Qtd. Efetivo:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={cc.quant_civil}
+                        onChange={e => updateCivilChamada(cc.id_chamada_civil, { quant_civil: parseInt(e.target.value) || 1 })}
+                        className="w-20 px-2 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+                  </div>
+                ) : null;
+              })}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <table className="w-full text-sm hidden sm:block">
               <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-800">
                 <tr>
                   <th className="p-4 text-left font-bold text-slate-500 uppercase text-[10px]">Nome Completo</th>
@@ -246,6 +306,18 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
           Selecione um turno para realizar a chamada civil.
         </div>
       )}
+      
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText="Remover"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

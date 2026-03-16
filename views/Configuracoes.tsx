@@ -21,6 +21,7 @@ import {
 import { User, UserRole } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface ConfiguracoesProps {
     onNotify?: (msg: string, type: ToastType) => void;
@@ -43,6 +44,21 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | number | null>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
+
+    // Estados do modal de confirmação
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type?: 'danger' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        type: 'danger'
+    });
 
     useEffect(() => {
         loadData();
@@ -119,19 +135,30 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
             onNotify?.("Não é possível remover o único usuário.", "error");
             return;
         }
-        if (!confirm("Tem certeza que deseja remover este usuário?")) return;
-        try {
-            await apiService.deleteUser(id);
-            setUsers(users.filter(u => u.id !== id));
-            onNotify?.("Usuário removido.", "warning");
-        } catch (error) {
-            onNotify?.("Erro ao remover usuário.", "error");
-        }
+        
+        const user = users.find(u => u.id === id);
+        if (!user) return;
+
+        setModalConfig({
+            isOpen: true,
+            title: 'Remover Usuário',
+            message: `Tem certeza que deseja remover o usuário ${user.nome} (@${user.username})?`,
+            onConfirm: async () => {
+                try {
+                    await apiService.deleteUser(id);
+                    setUsers(users.filter(u => u.id !== id));
+                    onNotify?.("Usuário removido.", "warning");
+                } catch (error) {
+                    onNotify?.("Erro ao remover usuário.", "error");
+                }
+            },
+            type: 'danger'
+        });
     };
 
     const resetPassword = async (id: string, username: string) => {
         const newPassword = prompt(`Digite a nova senha para o usuário @${username}:`);
-        
+
         if (!newPassword || newPassword.trim() === '') {
             onNotify?.("Senha não pode ser vazia.", "error");
             return;
@@ -210,31 +237,60 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
     };
 
     const removeItem = async (id: string | number) => {
-        if (!confirm("Tem certeza que deseja remover este item?")) return;
-        try {
-            switch (activeTab) {
-                case 'forcas':
-                    await apiService.deleteForca(id as number);
-                    setForcas(forcas.filter(i => i.id_forca !== id));
-                    break;
-                case 'postos':
-                    await apiService.deletePostoGrad(id as number);
-                    setPostos(postos.filter(i => i.id_posto_grad !== id));
-                    break;
-                case 'orgaos':
-                    await apiService.deleteOrgaoOrigem(id as number);
-                    setOrgaos(orgaos.filter(i => i.id_orgao_origem !== id));
-                    break;
-                case 'ubms':
-                    await apiService.deleteUBM(id as number);
-                    setUbms(ubms.filter(i => i.id_ubm !== id));
-                    break;
-            }
-            onNotify?.("Item removido com sucesso.", "warning");
-        } catch (error: any) {
-            const msg = error.details || "Erro ao remover item. Pode haver registros vinculados.";
-            onNotify?.(msg, "error");
+        let itemName = 'este item';
+        
+        // Obter nome do item para mensagem personalizada
+        switch (activeTab) {
+            case 'forcas':
+                const forca = forcas.find(f => f.id_forca === id);
+                itemName = forca ? `a força ${forca.nome_forca}` : 'esta força';
+                break;
+            case 'postos':
+                const posto = postos.find(p => p.id_posto_grad === id);
+                itemName = posto ? `o posto/grad ${posto.nome_posto_grad}` : 'este posto/grad';
+                break;
+            case 'orgaos':
+                const orgao = orgaos.find(o => o.id_orgao_origem === id);
+                itemName = orgao ? `o órgão ${orgao.nome_orgao}` : 'este órgão';
+                break;
+            case 'ubms':
+                const ubm = ubms.find(u => u.id_ubm === id);
+                itemName = ubm ? `a UBM ${ubm.nome_ubm}` : 'esta UBM';
+                break;
         }
+
+        setModalConfig({
+            isOpen: true,
+            title: 'Remover Item',
+            message: `Tem certeza que deseja remover ${itemName}? Esta ação não poderá ser desfeita.`,
+            onConfirm: async () => {
+                try {
+                    switch (activeTab) {
+                        case 'forcas':
+                            await apiService.deleteForca(id as number);
+                            setForcas(forcas.filter(i => i.id_forca !== id));
+                            break;
+                        case 'postos':
+                            await apiService.deletePostoGrad(id as number);
+                            setPostos(postos.filter(i => i.id_posto_grad !== id));
+                            break;
+                        case 'orgaos':
+                            await apiService.deleteOrgaoOrigem(id as number);
+                            setOrgaos(orgaos.filter(i => i.id_orgao_origem !== id));
+                            break;
+                        case 'ubms':
+                            await apiService.deleteUBM(id as number);
+                            setUbms(ubms.filter(i => i.id_ubm !== id));
+                            break;
+                    }
+                    onNotify?.("Item removido com sucesso.", "warning");
+                } catch (error: any) {
+                    const msg = error.details || "Erro ao remover item. Pode haver registros vinculados.";
+                    onNotify?.(msg, "error");
+                }
+            },
+            type: 'warning'
+        });
     };
 
     const renderTabs = () => {
@@ -247,8 +303,8 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
         ];
 
         return (
-            <div className="flex flex-wrap gap-2 mb-10 p-2 bg-slate-100/50 dark:bg-slate-800/30 backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-slate-800/50 shadow-inner justify-between">
-                <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-10 p-2 bg-slate-100/50 dark:bg-slate-800/30 backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-slate-800/50 shadow-inner justify-center sm:justify-between">
+                <div className="flex flex-wrap justify-center sm:flex-row gap-3 sm:gap-2">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
@@ -305,7 +361,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
             {isAdding && (
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border-2 border-primary/20 dark:border-primary/10 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-                    <form onSubmit={handleSaveUser} className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <form onSubmit={handleSaveUser} className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-3">Nome Completo</label>
                             <div className="relative group/input">
@@ -346,7 +402,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                                 </select>
                             </div>
                         </div>
-                        <div className="md:col-span-2 flex justify-end gap-3">
+                        <div className="sm:col-span-2 flex justify-end gap-3">
                             <button type="button" onClick={() => { setIsAdding(false); setEditingId(null); setEditingItem(null); }} className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-300 dark:hover:bg-slate-600 transition-all">
                                 CANCELAR
                             </button>
@@ -358,8 +414,8 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                 </div>
             )}
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 overflow-hidden shadow-sm">
-                <table className="w-full text-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 overflow-x-auto shadow-sm">
+                <table className="w-full text-sm min-w-[600px]">
                     <thead>
                         <tr className="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
                             <th className="p-4 text-left font-black text-slate-400 uppercase text-[9px] tracking-[0.2em]">Nome do Operador</th>
@@ -420,7 +476,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                 {(isAdding || editingId) && (
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border-2 border-primary/20 dark:border-primary/10 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-                        <form onSubmit={handleSaveItem} className="relative z-10 flex flex-col md:flex-row gap-4">
+                        <form onSubmit={handleSaveItem} className="relative z-10 flex flex-col sm:flex-row gap-4">
                             <div className="flex-1 space-y-2">
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-3">Nome da Entrada</label>
                                 <div className="relative group/input">
@@ -438,7 +494,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                                 </div>
                             </div>
                             <div className="flex items-end">
-                                <button type="submit" className="w-full md:w-auto px-8 h-[50px] bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                                <button type="submit" className="w-full sm:w-auto px-8 h-[50px] bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
                                     <Save size={16} /> {editingId ? 'ATUALIZAR' : 'SALVAR'}
                                 </button>
                             </div>
@@ -447,7 +503,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                 )}
 
                 <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200/60 dark:border-slate-800/60 p-8 shadow-sm">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                         {data.map(item => (
                             <div key={item[idKey]} className="bg-slate-50/50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-100 dark:border-slate-700/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all group">
                                 <div className="flex items-start justify-between gap-4">
@@ -505,36 +561,36 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
             )}
 
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200/60 dark:border-slate-800/60 p-8 shadow-sm">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                        {postos.map(item => (
-                            <div key={item.id_posto_grad} className="bg-slate-50/50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-100 dark:border-slate-700/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all group">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tighter uppercase break-words leading-tight">
-                                            {item.nome_posto_grad}
-                                        </h3>
-                                    </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0 duration-300">
-                                        <button 
-                                            onClick={() => { setEditingId(item.id_posto_grad); setEditingItem(item); setIsAdding(false); }} 
-                                            className="p-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-500 hover:bg-blue-500 hover:text-white rounded-md transition-all shadow-sm"
-                                            title="Editar"
-                                        >
-                                            <Edit2 size={12} />
-                                        </button>
-                                        <button 
-                                            onClick={() => removeItem(item.id_posto_grad)} 
-                                            className="p-1.5 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white rounded-md transition-all shadow-sm"
-                                            title="Excluir"
-                                        >
-                                            <Trash2 size={12} />
-                                        </button>
-                                    </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {postos.map(item => (
+                        <div key={item.id_posto_grad} className="bg-slate-50/50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-100 dark:border-slate-700/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all group">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tighter uppercase break-words leading-tight">
+                                        {item.nome_posto_grad}
+                                    </h3>
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0 duration-300">
+                                    <button
+                                        onClick={() => { setEditingId(item.id_posto_grad); setEditingItem(item); setIsAdding(false); }}
+                                        className="p-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-500 hover:bg-blue-500 hover:text-white rounded-md transition-all shadow-sm"
+                                        title="Editar"
+                                    >
+                                        <Edit2 size={12} />
+                                    </button>
+                                    <button
+                                        onClick={() => removeItem(item.id_posto_grad)}
+                                        className="p-1.5 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white rounded-md transition-all shadow-sm"
+                                        title="Excluir"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
                 </div>
+            </div>
         </div>
     );
 
@@ -547,8 +603,8 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                     <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl animate-pulse"></div>
                     <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl"></div>
 
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
+                    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-center sm:text-left">
+                        <div className="w-full sm:w-auto flex flex-col items-center sm:items-start">
                             <div className="inline-flex items-center gap-2 px-2 py-1 bg-primary/10 text-primary rounded-full text-[8px] font-black uppercase tracking-[0.2em] mb-2">
                                 <Shield size={10} /> Painel Administrativo
                             </div>
@@ -559,25 +615,36 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                                 Central de controle para gestão de acessos, parâmetros operacionais e integridade do banco de dados.
                             </p>
                         </div>
-                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <div className="p-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm text-primary">
-                                <Building2 size={18} />
-                            </div>
-                            <div>
-                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Base de Dados</p>
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">MySQL Online</p>
+                        <div className="flex justify-center w-full sm:w-auto">
+                            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                <div className="p-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm text-primary">
+                                    <Building2 size={18} />
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {renderTabs()}
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {renderContent()}
+                    {renderTabs()}
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {renderContent()}
+                    </div>
+                </div>
+                
+                {/* Modal de Confirmação */}
+                <ConfirmModal
+                    isOpen={modalConfig.isOpen}
+                    onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+                    onConfirm={modalConfig.onConfirm}
+                    title={modalConfig.title}
+                    message={modalConfig.message}
+                    type={modalConfig.type}
+                    confirmText="Remover"
+                    cancelText="Cancelar"
+                />
             </div>
         </div>
     );
+
 };
 
 export default Configuracoes;

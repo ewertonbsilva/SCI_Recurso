@@ -35,7 +35,7 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
       const now = Date.now();
       const inicio = isNaN(equipe.inicio) ? now : equipe.inicio;
       const diff = Math.floor((now - inicio) / 1000);
-      
+
       const absDiff = Math.abs(diff);
       const h = Math.floor(absDiff / 3600).toString().padStart(2, '0');
       const m = Math.floor((absDiff % 3600) / 60).toString().padStart(2, '0');
@@ -232,16 +232,16 @@ const Monitoramento: React.FC = () => {
       if (selectedTurno) {
         try {
           const equipesData = await apiService.getEquipes(selectedTurno.id_turno);
-          
+
           // Carregar componentes para cada equipe
           const componentesPromises = equipesData.map(e => apiService.getComponentesEquipe(e.id_equipe));
           const componentesResults = await Promise.all(componentesPromises);
-          
+
           const equipesComComponentes = equipesData.map((equipe, index) => ({
             ...equipe,
             componentes: componentesResults[index] || []
           }));
-          
+
           setEquipes(equipesComComponentes);
         } catch (error) {
           console.error('Erro ao carregar equipes:', error);
@@ -250,41 +250,41 @@ const Monitoramento: React.FC = () => {
     };
 
     loadEquipes();
-    
+
     // Adicionar ouvinte para atualizações em tempo real
     const handleEquipeAtualizada = (event: CustomEvent) => {
       const { idEquipe, updates, idTurno } = event.detail;
-      
+
       // Se a atualização for do mesmo turno monitorado
       if (idTurno === selectedTurno?.id_turno) {
-        setEquipes(prev => prev.map(e => 
+        setEquipes(prev => prev.map(e =>
           e.id_equipe === idEquipe ? { ...e, ...updates } : e
         ));
       }
     };
-    
+
     const handleEquipeCriada = (event: CustomEvent) => {
       const { equipe, idTurno } = event.detail;
-      
+
       // Se a equipe for do mesmo turno monitorado
       if (idTurno === selectedTurno?.id_turno) {
         setEquipes(prev => [...prev, equipe]);
       }
     };
-    
+
     const handleEquipeRemovida = (event: CustomEvent) => {
       const { idEquipe, idTurno } = event.detail;
-      
+
       // Se a equipe removida for do mesmo turno monitorado
       if (idTurno === selectedTurno?.id_turno) {
         setEquipes(prev => prev.filter(e => e.id_equipe !== idEquipe));
       }
     };
-    
+
     window.addEventListener('equipeAtualizada', handleEquipeAtualizada as EventListener);
     window.addEventListener('equipeCriada', handleEquipeCriada as EventListener);
     window.addEventListener('equipeRemovida', handleEquipeRemovida as EventListener);
-    
+
     return () => {
       window.removeEventListener('equipeAtualizada', handleEquipeAtualizada as EventListener);
       window.removeEventListener('equipeCriada', handleEquipeCriada as EventListener);
@@ -404,21 +404,21 @@ const Monitoramento: React.FC = () => {
       <div className={`min-h-[calc(100vh-200px)] transition-all duration-300 ${isFullscreen ? 'px-4 pb-4 space-y-16' : 'space-y-6'}`}>
         {/* Títulos clicáveis na mesma linha - apenas fora de tela cheia */}
         {!isFullscreen && (
-          <div className="flex items-center gap-6 p-4">
+          <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 md:gap-6 p-4">
             {categorias.map(cat => {
               const equipesNaCat = mappedEquipes.filter(e => e.status === cat.id);
               return (
                 <button
                   key={cat.id}
                   onClick={() => setFiltroStatus(cat.id)}
-                  className={`flex items-center gap-2 font-black text-2xl uppercase tracking-tighter transition-all hover:scale-105 ${
-                    filtroStatus === cat.id
-                      ? 'text-primary dark:text-primary'
-                      : 'text-slate-800 dark:text-slate-100'
-                  }`}
+                  className={`flex flex-wrap items-center gap-2 font-black text-lg md:text-2xl uppercase tracking-tighter transition-all hover:scale-105 ${filtroStatus === cat.id
+                    ? 'text-primary dark:text-primary'
+                    : 'text-slate-800 dark:text-slate-100'
+                    }`}
                 >
-                  <div className={`h-8 w-2 rounded-full ${cat.color}`}></div>
-                  {cat.label} <span className="text-slate-400 ml-2 font-medium">{equipesNaCat.length}</span>
+                  <div className={`h-6 md:h-8 w-1.5 md:w-2 rounded-full ${cat.color}`}></div>
+                  <span>{cat.label}</span>
+                  <span className="text-slate-400 font-medium">({equipesNaCat.length})</span>
                 </button>
               );
             })}
@@ -427,12 +427,12 @@ const Monitoramento: React.FC = () => {
 
         {categorias.map(cat => {
           const equipesNaCat = mappedEquipes.filter(e => e.status === cat.id);
-          
+
           // Em tela cheia, mostra sempre todos. Fora de tela cheia, aplica filtro
           if (!isFullscreen && filtroStatus !== 'TODOS' && filtroStatus !== cat.id) {
             return null;
           }
-          
+
           return (
             <section key={cat.id} className={`${isFullscreen ? 'space-y-6' : 'space-y-2'}`}>
               {/* Título apenas em tela cheia */}

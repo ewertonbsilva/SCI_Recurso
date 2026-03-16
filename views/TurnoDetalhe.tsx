@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { FuncaoMilitar, StatusPresenca, StatusEquipe, CadastroMilitar, CadastroCivil } from '../types';
 import type { ChamadaMilitar, ChamadaCivil, AtestadoMedico, Turno } from '../types';
 import { ToastType } from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface TurnoDetalheProps {
   id_turno: string;
@@ -66,6 +67,21 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   
   // Estado para pesquisa na escala
   const [escalaSearchTerm, setEscalaSearchTerm] = useState('');
+
+  // Estados do modal de confirmação
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
 
   useEffect(() => {
     // Resetar para página 1 quando mudar de aba ou pesquisar
@@ -282,37 +298,67 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   const removeChamadaMil = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await apiService.deleteChamadaMilitar(id);
-      setChamadaMilitar(prev => prev.filter(x => x.id_chamada_militar !== id));
-      onNotify?.("Militar removido da escala.", "warning");
-    } catch (error) {
-      console.error('Erro ao remover militar:', error);
-      onNotify?.('Erro ao remover militar do banco de dados', 'error');
-    }
+    
+    const chamada = chamadaMilitar.find(cm => cm.id_chamada_militar === id);
+    if (!chamada) return;
+    
+    const militar = militares.find(m => m.matricula === chamada.matricula);
+    const militarNome = militar ? `${militar.nome_posto_grad} ${militar.nome_guerra}` : 'Militar não encontrado';
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Remover Militar da Escala',
+      message: `Tem certeza que deseja remover ${militarNome} (${chamada.matricula}) da escala deste turno?`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteChamadaMilitar(id);
+          setChamadaMilitar(prev => prev.filter(x => x.id_chamada_militar !== id));
+          onNotify?.("Militar removido da escala.", "warning");
+        } catch (error) {
+          console.error('Erro ao remover militar:', error);
+          onNotify?.('Erro ao remover militar do banco de dados', 'error');
+        }
+      },
+      type: 'warning'
+    });
   };
 
   const removeChamadaCiv = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await apiService.deleteChamadaCivil(id);
-      setChamadaCivil(prev => prev.filter(x => x.id_chamada_civil !== id));
-      onNotify?.("Civil removido da escala.", "warning");
-    } catch (error: any) {
-      console.error('Erro ao remover civil:', error);
+    
+    const chamada = chamadaCivil.find(cc => cc.id_chamada_civil === id);
+    if (!chamada) return;
+    
+    const civil = civis.find(c => c.id_civil === chamada.id_civil);
+    const civilNome = civil ? civil.nome_completo : 'Civil não encontrado';
 
-      // Handle 404 errors - record may have already been deleted
-      if (error.message && error.message.includes('404')) {
-        console.log('Record not found, reloading data...');
-        onNotify?.('Registro já foi removido. Recarregando dados...', 'warning');
-        await loadDadosFromAPI();
-        return;
-      }
+    setModalConfig({
+      isOpen: true,
+      title: 'Remover Civil da Escala',
+      message: `Tem certeza que deseja remover ${civilNome} da escala deste turno?`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteChamadaCivil(id);
+          setChamadaCivil(prev => prev.filter(x => x.id_chamada_civil !== id));
+          onNotify?.("Civil removido da escala.", "warning");
+        } catch (error: any) {
+          console.error('Erro ao remover civil:', error);
 
-      // Handle other errors
-      onNotify?.('Erro ao remover civil do banco de dados', 'error');
-    }
+          // Handle 404 errors - record may have already been deleted
+          if (error.message && error.message.includes('404')) {
+            console.log('Record not found, reloading data...');
+            onNotify?.('Registro já foi removido. Recarregando dados...', 'warning');
+            await loadDadosFromAPI();
+            return;
+          }
+
+          // Handle other errors
+          onNotify?.('Erro ao remover civil do banco de dados', 'error');
+        }
+      },
+      type: 'warning'
+    });
   };
 
   const chamadaMil = chamadaMilitar
@@ -436,8 +482,80 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
               <p className="text-center text-slate-400 dark:text-slate-600 italic font-medium">
                 Clique nos botões para registrar presença dos militares
               </p>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
-                  {paginatedData.map(cm => {
+              
+              {/* Mobile Cards Layout */}
+              <div className="sm:hidden space-y-3">
+                {paginatedData.map(cm => {
+                  const m = militares.find(mil => mil.matricula === cm.matricula);
+                  return (
+                    <div key={cm.id_chamada_militar} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4 space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase leading-tight">{m?.nome_posto_grad} {m?.nome_guerra}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1">{cm.matricula}</p>
+                          <div className="flex gap-2 mt-2">
+                            {m?.cpoe && <div className="p-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded" title="CPOE"><Ship size={12} /></div>}
+                            {m?.mergulhador && <div className="p-1 bg-blue-50 dark:bg-blue-950/30 text-blue-600 rounded" title="CMAUT"><Waves size={12} /></div>}
+                            <div className={`p-1 rounded ${cm.funcao === FuncaoMilitar.SCI ? 'bg-purple-50 dark:bg-purple-950/30 text-purple-600' : 'bg-orange-50 dark:bg-orange-950/30 text-orange-600'}`} title={cm.funcao === FuncaoMilitar.SCI ? 'SCI' : 'Combatente'}>
+                              {cm.funcao === FuncaoMilitar.SCI ? <Settings size={12} /> : <Flame size={12} />}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => updateChamadaMil(cm.id_chamada_militar, { presenca: StatusPresenca.PRESENTE })}
+                            className={`p-2 rounded-lg transition-all ${
+                              cm.presenca === StatusPresenca.PRESENTE 
+                                ? 'bg-emerald-600 text-white shadow-lg' 
+                                : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 hover:bg-emerald-100'
+                            }`}
+                            title="Presente"
+                          >
+                            <CheckCircle size={16} />
+                          </button>
+                          <button 
+                            onClick={() => updateChamadaMil(cm.id_chamada_militar, { presenca: StatusPresenca.AUSENTE })}
+                            className={`p-2 rounded-lg transition-all ${
+                              cm.presenca === StatusPresenca.AUSENTE 
+                                ? 'bg-red-600 text-white shadow-lg' 
+                                : 'bg-red-50 dark:bg-red-950/30 text-red-600 hover:bg-red-100'
+                            }`}
+                            title="Ausente"
+                          >
+                            <XCircle size={16} />
+                          </button>
+                          <button 
+                            onClick={() => updateChamadaMil(cm.id_chamada_militar, { presenca: StatusPresenca.ATESTADO })}
+                            className={`p-2 rounded-lg transition-all ${
+                              cm.presenca === StatusPresenca.ATESTADO 
+                                ? 'bg-amber-600 text-white shadow-lg' 
+                                : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 hover:bg-amber-100'
+                            }`}
+                            title="Atestado"
+                          >
+                            <FileText size={16} />
+                          </button>
+                          <button 
+                            onClick={() => updateChamadaMil(cm.id_chamada_militar, { presenca: StatusPresenca.PERMUTA })}
+                            className={`p-2 rounded-lg transition-all ${
+                              cm.presenca === StatusPresenca.PERMUTA 
+                                ? 'bg-blue-600 text-white shadow-lg' 
+                                : 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 hover:bg-blue-100'
+                            }`}
+                            title="Permuta"
+                          >
+                            <ArrowRightLeft size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Grid Layout */}
+              <div className="hidden sm:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
+                {paginatedData.map(cm => {
                   const m = militares.find(mil => mil.matricula === cm.matricula);
                   return (
                     <div key={cm.id_chamada_militar} className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
@@ -505,11 +623,6 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                   );
                 })}
               </div>
-              {chamadaMil.length === 0 && (
-                <div className="py-24 text-center text-slate-300 dark:text-slate-600 italic font-medium">
-                  Nenhum militar escalado neste turno.
-                </div>
-              )}
             </div>
             
             {/* Controles de Paginação */}
@@ -565,8 +678,8 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="md:col-span-1 space-y-4">
             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
                 <UserPlus size={16} /> 
@@ -589,7 +702,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
             </div>
           </div>
 
-          <div className="lg:col-span-3 space-y-6">
+          <div className="md:col-span-3 space-y-6">
             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
                 <div className="flex justify-between items-center gap-4">
@@ -798,6 +911,18 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
           </div>
         </div>
       )}
+      
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText="Remover"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

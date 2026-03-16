@@ -5,12 +5,13 @@ import { apiService } from '../apiService';
 import { Turno, Periodo } from '../types';
 import { ToastType } from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
+import ConfirmModal from '../components/ConfirmModal';
 
 // Função para obter cores do tema atual (fora do componente)
 const getThemeColors = () => {
   const root = document.documentElement;
   const theme = root.getAttribute('data-theme') || 'default';
-  
+
   const themeColors: Record<string, { primary: string; primaryHover: string; rgb: string }> = {
     default: { primary: '#3b82f6', primaryHover: '#2563eb', rgb: '59, 130, 246' },
     ocean: { primary: '#0ea5e9', primaryHover: '#0284c7', rgb: '14, 165, 233' },
@@ -18,7 +19,7 @@ const getThemeColors = () => {
     crimson: { primary: '#dc2626', primaryHover: '#b91c1c', rgb: '220, 38, 38' },
     indigo: { primary: '#4f46e5', primaryHover: '#4338ca', rgb: '79, 70, 229' }
   };
-  
+
   return themeColors[theme] || themeColors.default;
 };
 
@@ -32,12 +33,27 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   const [apiTurnos, setApiTurnos] = useState<Turno[]>([]);
   const [loading, setLoading] = useState(true);
   const [themeColors, setThemeColors] = useState(getThemeColors());
-  
+
   // Estados para paginação e filtro
   const [currentPage, setCurrentPage] = useState(1);
   const [dataFilter, setDataFilter] = useState('');
   const [periodoFilter, setPeriodoFilter] = useState<Periodo | ''>('');
-  
+
+  // Estados do modal de confirmação
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
+
   const itemsPerPage = 25; // 5 linhas x 3 colunas
 
   // Monitorar mudanças no tema
@@ -133,15 +149,28 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   const removeTurno = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    const turno = apiTurnos.find(t => t.id_turno === id);
+    if (!turno) return;
+    
+    const dataFormatada = turno.data ? new Date(turno.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data inválida';
 
-    try {
-      await apiService.deleteTurno(id);
-      onNotify?.("Turno removido com sucesso do banco de dados.", "warning");
-      await loadTurnosFromAPI(); // Recarregar lista
-    } catch (error) {
-      console.error('Erro ao remover turno:', error);
-      onNotify?.('Erro ao remover turno do banco de dados', 'error');
-    }
+    setModalConfig({
+      isOpen: true,
+      title: 'Excluir Turno',
+      message: `Tem certeza que deseja excluir o turno do dia ${dataFormatada} (${turno.periodo})? Esta ação não poderá ser desfeita.`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteTurno(id);
+          onNotify?.("Turno removido com sucesso do banco de dados.", "warning");
+          await loadTurnosFromAPI(); // Recarregar lista
+        } catch (error) {
+          console.error('Erro ao remover turno:', error);
+          onNotify?.('Erro ao remover turno do banco de dados', 'error');
+        }
+      },
+      type: 'danger'
+    });
   };
 
   // Função para garantir que os dados não venham aninhados (evitar [[...]])
@@ -183,8 +212,8 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 text-center md:text-left">
+        <div className="w-full md:w-auto flex flex-col items-center md:items-start">
           <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">Gestão de <span style={{ color: themeColors.primary }}>Turnos</span></h2>
           <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Crie e gerencie os períodos operacionais.</p>
         </div>
@@ -198,12 +227,12 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
               <Calendar style={{ color: themeColors.primary }} size={24} /> Novo Período
             </h3>
           </div>
-          <form onSubmit={handleAddTurno} className="flex gap-4 items-center">
-            <div className="flex-1 space-y-1.5">
+          <form onSubmit={handleAddTurno} className="flex flex-col sm:flex-row sm:gap-4 items-start sm:items-center gap-4">
+            <div className="flex-1 space-y-1.5 w-full sm:w-auto">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Data do Plantão</label>
               <input type="date" name="data" required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm outline-none" />
             </div>
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 space-y-1.5 w-full sm:w-auto">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Período</label>
               <select name="periodo" required className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-sm font-bold outline-none cursor-pointer">
                 <option value={Periodo.MANHA}>Manhã</option>
@@ -211,7 +240,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
                 <option value={Periodo.NOITE}>Noite</option>
               </select>
             </div>
-            <button type="submit" className="px-8 py-4 text-white rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg whitespace-nowrap" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}><Plus size={18} /> Iniciar Turno</button>
+            <button type="submit" className="w-full sm:w-auto px-8 py-4 text-white rounded-[1.5rem] flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-lg whitespace-nowrap" style={{ backgroundColor: themeColors.primary, boxShadow: `0 10px 15px -3px ${themeColors.primary}20` }}><Plus size={18} /> Iniciar Turno</button>
           </form>
         </div>
 
@@ -221,7 +250,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
             <Filter size={18} style={{ color: themeColors.primary }} />
             <h3 className="text-sm font-black uppercase tracking-tighter">Filtros</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-3">Data</label>
               <input
@@ -271,8 +300,8 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
           </h3>
           {loading && <span className="text-xs" style={{ color: themeColors.primary }}>Carregando...</span>}
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
           {paginatedTurnos.map((t) => (
             <div
               key={t.id_turno}
@@ -312,7 +341,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
         {/* Mensagem quando não há turnos */}
         {!loading && paginatedTurnos.length === 0 && (
           <div className="col-span-full py-20 text-center text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-            {filteredTurnos.length === 0 
+            {filteredTurnos.length === 0
               ? "Nenhum turno encontrado. Comece criando um novo período ou ajuste os filtros."
               : "Nenhum turno encontrado nesta página. Tente outras páginas ou ajuste os filtros."
             }
@@ -329,7 +358,7 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
             >
               <ChevronLeft size={16} />
             </button>
-            
+
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let pageNum;
               if (totalPages <= 5) {
@@ -341,23 +370,22 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
               } else {
                 pageNum = currentPage - 2 + i;
               }
-              
+
               return (
                 <button
                   key={pageNum}
                   onClick={() => handlePageChange(pageNum)}
-                  className={`px-3 py-1 rounded-lg text-sm font-black transition-all ${
-                    currentPage === pageNum
+                  className={`px-3 py-1 rounded-lg text-sm font-black transition-all ${currentPage === pageNum
                       ? 'text-white shadow-lg'
                       : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
+                    }`}
                   style={currentPage === pageNum ? { backgroundColor: themeColors.primary } : {}}
                 >
                   {pageNum}
                 </button>
               );
             })}
-            
+
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
@@ -368,6 +396,18 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
           </div>
         )}
       </div>
+      
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

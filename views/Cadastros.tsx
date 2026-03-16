@@ -5,12 +5,13 @@ import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
 import { useAuth } from '../contexts/AuthContext';
 import Pagination from '../components/Pagination';
+import ConfirmModal from '../components/ConfirmModal';
 
 // Função para obter cores do tema atual (fora do componente)
 const getThemeColors = () => {
   const root = document.documentElement;
   const theme = root.getAttribute('data-theme') || 'default';
-  
+
   const themeColors: Record<string, { primary: string; primaryHover: string; rgb: string }> = {
     default: { primary: '#3b82f6', primaryHover: '#2563eb', rgb: '59, 130, 246' },
     ocean: { primary: '#0ea5e9', primaryHover: '#0284c7', rgb: '14, 165, 233' },
@@ -18,7 +19,7 @@ const getThemeColors = () => {
     crimson: { primary: '#dc2626', primaryHover: '#b91c1c', rgb: '220, 38, 38' },
     indigo: { primary: '#4f46e5', primaryHover: '#4338ca', rgb: '79, 70, 229' }
   };
-  
+
   return themeColors[theme] || themeColors.default;
 };
 
@@ -86,19 +87,19 @@ const MilitarCard: React.FC<{ militar: CadastroMilitar, atestados: AtestadoMedic
           <h4 className="font-black text-slate-900 dark:text-white text-sm leading-tight">{militar.nome_completo}</h4>
           <p className="text-[9px] text-blue-500 font-black uppercase mt-1 tracking-wider">{militar.nome_posto_grad} {militar.nome_guerra} • {militar.nome_forca || 'N/A'}</p>
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+        <div className="flex gap-1 transition-all">
           {onEdit && (
-            <button 
-              onClick={() => onEdit(militar)} 
-              className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800" 
+            <button
+              onClick={() => onEdit(militar)}
+              className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800"
               style={{ color: themeColors.primary }}
             >
               <Edit2 size={14} />
             </button>
           )}
           {onRemove && (
-            <button 
-              onClick={(e) => onRemove(e, militar.matricula)} 
+            <button
+              onClick={(e) => onRemove(e, militar.matricula)}
               className="p-1.5 text-slate-300 rounded-lg transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
             >
               <Trash2 size={14} />
@@ -149,19 +150,19 @@ const CivilCard: React.FC<{ civil: CadastroCivil, themeColors: any, onEdit?: (c:
           <h4 className="font-black text-slate-900 dark:text-white text-sm leading-tight">{civil.nome_completo}</h4>
           <p className="text-[9px] text-slate-400 uppercase mt-1 tracking-wider">{civil.contato}</p>
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+        <div className="flex gap-1 transition-all">
           {onEdit && (
-            <button 
-              onClick={() => onEdit(civil)} 
-              className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800" 
+            <button
+              onClick={() => onEdit(civil)}
+              className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800"
               style={{ color: themeColors.primary }}
             >
               <Edit2 size={14} />
             </button>
           )}
           {onRemove && (
-            <button 
-              onClick={(e) => onRemove(e, civil.id_civil)} 
+            <button
+              onClick={(e) => onRemove(e, civil.id_civil)}
               className="p-1.5 text-slate-300 rounded-lg transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
             >
               <Trash2 size={14} />
@@ -203,19 +204,19 @@ const AtestadoCard: React.FC<{ atestado: AtestadoMedico, militar?: CadastroMilit
           <div className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400'}`}>
             {isActive ? 'ATIVO' : 'EXPIRADO'}
           </div>
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+          <div className="flex gap-1 transition-all">
             {onEdit && (
-              <button 
-                onClick={() => onEdit(atestado)} 
-                className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800" 
+              <button
+                onClick={() => onEdit(atestado)}
+                className="p-1.5 text-slate-300 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-800"
                 style={{ color: themeColors.primary }}
               >
                 <Edit2 size={14} />
               </button>
             )}
             {onRemove && (
-              <button 
-                onClick={(e) => onRemove(e, atestado.id)} 
+              <button
+                onClick={(e) => onRemove(e, atestado.id)}
                 className="p-1.5 text-slate-300 rounded-lg transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
               >
                 <Trash2 size={14} />
@@ -248,11 +249,11 @@ const Cadastros: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [themeColors, setThemeColors] = useState(getThemeColors());
-  
+
   // Estados de paginação
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = activeSubTab === 'civil' ? 12 : activeSubTab === 'atestado' ? 15 : 9;
-  
+
   // Estados de dados
   const [loading, setLoading] = useState(true);
   const [militares, setMilitares] = useState<CadastroMilitar[]>([]);
@@ -355,7 +356,8 @@ const Cadastros: React.FC = () => {
   const [militarForm, setMilitarForm] = useState<Partial<CadastroMilitar>>({
     matricula: '', nome_completo: '', id_posto_grad: 0, nome_guerra: '', rg: '', id_forca: 0, cpoe: false, mergulhador: false, restricao_medica: false, desc_rest_med: '', id_ubm: ''
   });
-  const [civilForm, setCivilForm] = useState<Partial<CadastroCivil>>({
+  const [civilForm, setCivilForm] = useState<Partial<CadastroCivil & { id_civil: string }>>({
+    id_civil: '',
     nome_completo: '', contato: '', id_orgao_origem: 0, motorista: false, modelo_veiculo: '', placa_veiculo: ''
   });
   const [atestadoForm, setAtestadoForm] = useState<Partial<AtestadoMedico>>({
@@ -482,7 +484,7 @@ const Cadastros: React.FC = () => {
 
   const handleSaveCivil = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!civilForm.nome_completo || !civilForm.contato) {
+    if (!civilForm.nome_completo || !civilForm.contato || !civilForm.id_orgao_origem) {
       onNotify?.("Preencha os campos obrigatórios.", "error");
       return;
     }
@@ -504,11 +506,16 @@ const Cadastros: React.FC = () => {
         await apiService.updateCivil(editingId, civilForm);
         onNotify?.("Civil atualizado com sucesso!", "success");
       } else {
-        await apiService.createCivil(civilForm);
+        // Gerar ID para novo civil
+        const newCivil = {
+          ...civilForm,
+          id_civil: `CIV_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+        };
+        await apiService.createCivil(newCivil);
         onNotify?.("Civil cadastrado com sucesso!", "success");
       }
 
-      setCivilForm({ nome_completo: '', contato: '', id_orgao_origem: 0, motorista: false, modelo_veiculo: '', placa_veiculo: '' });
+      setCivilForm({ id_civil: '', nome_completo: '', contato: '', id_orgao_origem: 0, motorista: false, modelo_veiculo: '', placa_veiculo: '' });
       setEditingId(null);
       await loadDadosFromAPI();
     } catch (error) {
@@ -646,45 +653,99 @@ const Cadastros: React.FC = () => {
     cancelEdit();
   };
 
+  // Estados do modal de confirmação
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
+
   const removeMilitar = async (e: React.MouseEvent, matricula: string) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await apiService.deleteMilitar(matricula);
-      onNotify?.("Militar excluído com sucesso.", "warning");
-      await loadDadosFromAPI();
-    } catch (error) {
-      console.error('Erro ao excluir militar:', error);
-      onNotify?.('Erro ao excluir militar', 'error');
-    }
-    if (editingId === matricula) cancelEdit();
+    
+    const militar = militares.find(m => m.matricula === matricula);
+    if (!militar) return;
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Excluir Militar',
+      message: `Tem certeza que deseja excluir o militar ${militar.nome_posto_grad} ${militar.nome_guerra} (${militar.matricula})? Esta ação não poderá ser desfeita.`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteMilitar(matricula);
+          onNotify?.("Militar excluído com sucesso.", "warning");
+          await loadDadosFromAPI();
+        } catch (error) {
+          console.error('Erro ao excluir militar:', error);
+          onNotify?.('Erro ao excluir militar', 'error');
+        }
+        if (editingId === matricula) cancelEdit();
+      },
+      type: 'danger'
+    });
   };
 
   const removeCivil = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await apiService.deleteCivil(id);
-      onNotify?.("Civil excluído com sucesso.", "warning");
-      await loadDadosFromAPI();
-    } catch (error) {
-      console.error('Erro ao excluir civil:', error);
-      onNotify?.('Erro ao excluir civil', 'error');
-    }
-    if (editingId === id) cancelEdit();
+    
+    const civil = civis.find(c => c.id_civil === id);
+    if (!civil) return;
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Excluir Civil',
+      message: `Tem certeza que deseja excluir o civil ${civil.nome_completo}? Esta ação não poderá ser desfeita.`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteCivil(id);
+          onNotify?.("Civil excluído com sucesso.", "warning");
+          await loadDadosFromAPI();
+        } catch (error) {
+          console.error('Erro ao excluir civil:', error);
+          onNotify?.('Erro ao excluir civil', 'error');
+        }
+        if (editingId === id) cancelEdit();
+      },
+      type: 'danger'
+    });
   };
 
   const removeAtestado = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await apiService.deleteAtestado(id);
-      onNotify?.("Atestado removido com sucesso.", "warning");
-      await loadDadosFromAPI();
-    } catch (error) {
-      console.error('Erro ao excluir atestado:', error);
-      onNotify?.('Erro ao excluir atestado', 'error');
-    }
+    
+    const atestado = atestados.find(at => at.id === id);
+    if (!atestado) return;
+    
+    const militar = militares.find(m => m.matricula === atestado.matricula);
+    const militarNome = militar ? `${militar.nome_posto_grad} ${militar.nome_guerra}` : atestado.matricula;
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Excluir Atestado',
+      message: `Tem certeza que deseja excluir o atestado de ${militarNome}? Esta ação não poderá ser desfeita.`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteAtestado(id);
+          onNotify?.("Atestado removido com sucesso.", "warning");
+          await loadDadosFromAPI();
+        } catch (error) {
+          console.error('Erro ao excluir atestado:', error);
+          onNotify?.('Erro ao excluir atestado', 'error');
+        }
+      },
+      type: 'danger'
+    });
   };
 
   const filteredMilitares = militares.filter(m =>
@@ -705,15 +766,15 @@ const Cadastros: React.FC = () => {
 
   // Paginação
   const totalPages = Math.ceil(
-    (activeSubTab === 'militar' ? filteredMilitares.length : 
-     activeSubTab === 'civil' ? filteredCivis.length : 
-     filteredAtestados.length) / itemsPerPage
+    (activeSubTab === 'militar' ? filteredMilitares.length :
+      activeSubTab === 'civil' ? filteredCivis.length :
+        filteredAtestados.length) / itemsPerPage
   );
 
   const paginatedData = (() => {
-    const data = activeSubTab === 'militar' ? filteredMilitares : 
-                activeSubTab === 'civil' ? filteredCivis : 
-                filteredAtestados;
+    const data = activeSubTab === 'militar' ? filteredMilitares :
+      activeSubTab === 'civil' ? filteredCivis :
+        filteredAtestados;
     const startIndex = (currentPage - 1) * itemsPerPage;
     return data.slice(startIndex, startIndex + itemsPerPage);
   })();
@@ -724,22 +785,22 @@ const Cadastros: React.FC = () => {
 
   return (
     <div className="space-y-8" style={{ minHeight: 'calc(100vh - 12rem)' }}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6 text-center lg:text-left">
+        <div className="w-full lg:w-auto flex flex-col items-center lg:items-start">
           <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">Recursos <span style={{ color: themeColors.primary }}>Base</span></h2>
           <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Gestão e prontuário de pessoal.</p>
         </div>
 
-        <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm w-fit self-start">
+        <div className="flex flex-wrap justify-center bg-white dark:bg-slate-900 p-1.5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm w-fit mx-auto lg:mx-0 lg:self-start">
           <button onClick={() => { setActiveSubTab('militar'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'militar' ? 'text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`} style={{ backgroundColor: activeSubTab === 'militar' ? themeColors.primary : 'transparent' }}>Militares</button>
           <button onClick={() => { setActiveSubTab('civil'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'civil' ? 'text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`} style={{ backgroundColor: activeSubTab === 'civil' ? themeColors.primary : 'transparent' }}>Civis</button>
           <button onClick={() => { setActiveSubTab('atestado'); cancelEdit(); }} className={`px-6 py-2.5 rounded-[1.5rem] font-bold text-xs uppercase tracking-widest transition-all ${activeSubTab === 'atestado' ? 'text-white shadow-lg' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`} style={{ backgroundColor: activeSubTab === 'atestado' ? themeColors.primary : 'transparent' }}>Atestados</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 items-start">
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-4 lg:p-6 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-black uppercase tracking-tighter">
                 {activeSubTab === 'atestado' ? 'Lançar' : (editingId ? 'Editar' : 'Novo')} <span style={{ color: themeColors.primary }}>{activeSubTab === 'militar' ? 'Militar' : activeSubTab === 'civil' ? 'Civil' : 'Atestado'}</span>
@@ -957,13 +1018,13 @@ const Cadastros: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-3 space-y-6" style={{ minHeight: '600px' }}>
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group">
-            <Search className="text-slate-400 transition-colors ml-4" size={20} style={{ color: themeColors.primary }} />
+        <div className="lg:col-span-3 space-y-4 lg:space-y-6" style={{ minHeight: '600px' }}>
+          <div className="bg-white dark:bg-slate-900 p-3 lg:p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group">
+            <Search className="text-slate-400 transition-colors ml-2 lg:ml-4" size={18} style={{ color: themeColors.primary }} />
             <input placeholder="Filtre por nome, matrícula ou unidade..." className="bg-transparent border-none focus:ring-0 w-full outline-none text-sm font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
 
-          <div className="lg:col-span-3 bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-visible">
+          <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-visible">
             {loading ? (
               <div className="py-20 text-center text-slate-400 font-medium">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: themeColors.primary }}></div>
@@ -972,15 +1033,15 @@ const Cadastros: React.FC = () => {
             ) : (
               <>
                 {activeSubTab === 'militar' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                     {(paginatedData as CadastroMilitar[]).map((m) => {
                       const restricted = isMilitarRestricted(m, atestados);
                       return (
                         <div key={m.matricula} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === m.matricula ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                          <MilitarCard 
-                            militar={m} 
-                            atestados={atestados} 
-                            themeColors={themeColors} 
+                          <MilitarCard
+                            militar={m}
+                            atestados={atestados}
+                            themeColors={themeColors}
                             onEdit={handleEditMilitar}
                             onRemove={removeMilitar}
                           />
@@ -989,13 +1050,13 @@ const Cadastros: React.FC = () => {
                     })}
                   </div>
                 ) : activeSubTab === 'civil' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                     {(paginatedData as CadastroCivil[]).map((c) => {
                       return (
                         <div key={c.id_civil} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingId === c.id_civil ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                          <CivilCard 
-                            civil={c} 
-                            themeColors={themeColors} 
+                          <CivilCard
+                            civil={c}
+                            themeColors={themeColors}
                             onEdit={handleEditCivil}
                             onRemove={removeCivil}
                           />
@@ -1004,15 +1065,15 @@ const Cadastros: React.FC = () => {
                     })}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                     {(paginatedData as AtestadoMedico[]).map((at) => {
                       const m = militares.find(mil => mil.matricula === at.matricula);
                       return (
                         <div key={at.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-                          <AtestadoCard 
-                            atestado={at} 
-                            militar={m} 
-                            themeColors={themeColors} 
+                          <AtestadoCard
+                            atestado={at}
+                            militar={m}
+                            themeColors={themeColors}
                             postos={postos}
                             onRemove={removeAtestado}
                           />
@@ -1038,6 +1099,18 @@ const Cadastros: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

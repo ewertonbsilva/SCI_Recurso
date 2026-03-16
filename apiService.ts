@@ -158,6 +158,10 @@ class ApiService {
   }
 
   // Equipes
+  async getAllEquipes(): Promise<any[]> {
+    return this.request<any[]>('/api/equipes');
+  }
+
   async getEquipes(idTurno: string): Promise<any[]> {
     return this.request<any[]>(`/api/equipes/${idTurno}`);
   }

@@ -23,6 +23,14 @@ const AppContent: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { isFullscreen } = useFullscreen();
 
+  // Define página inicial quando o usuário é carregado
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      const initialTab = user.role === UserRole.OPERADOR ? 'monitoramento' : 'dashboard';
+      setActiveTab(initialTab);
+    }
+  }, [user, isAuthenticated]);
+
   const showToast = (message: string, type: ToastType) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -32,12 +40,14 @@ const AppContent: React.FC = () => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSelectedTurnoId(null);
-        setActiveTab('dashboard');
+        // Define página inicial baseada no perfil do usuário
+        const fallbackTab = user?.role === UserRole.OPERADOR ? 'monitoramento' : 'dashboard';
+        setActiveTab(fallbackTab);
       }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, []);
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -65,9 +75,9 @@ const AppContent: React.FC = () => {
       case 'monitoramento': return <Monitoramento />;
       case 'equipes': return <GestaoEquipes onNotify={showToast} />;
       case 'cadastro':
-        return user?.role === UserRole.ADMIN ? <Cadastros onNotify={showToast} /> : <Dashboard />;
+        return user?.role === UserRole.ADMIN || user?.role === UserRole.OPERADOR ? <Cadastros onNotify={showToast} /> : <Monitoramento />;
       case 'turnos':
-        return user?.role === UserRole.ADMIN ? <Turnos onNotify={showToast} onSelectTurno={handleSelectTurno} /> : <Dashboard />;
+        return user?.role === UserRole.ADMIN || user?.role === UserRole.OPERADOR ? <Turnos onNotify={showToast} onSelectTurno={handleSelectTurno} /> : <Monitoramento />;
       case 'turno_detalhe':
         return selectedTurnoId ? (
           <TurnoDetalhe
@@ -75,12 +85,14 @@ const AppContent: React.FC = () => {
             onBack={() => setActiveTab('turnos')}
             onNotify={showToast}
           />
-        ) : <Dashboard />;
+        ) : (user?.role === UserRole.OPERADOR ? <Monitoramento /> : <Dashboard />);
       case 'chamada_mil': return <Chamadas onNotify={showToast} />;
       case 'chamada_civ': return <ChamadaCivilView onNotify={showToast} />;
       case 'usuarios':
-        return user?.role === UserRole.ADMIN ? <Configuracoes onNotify={showToast} /> : <Dashboard />;
-      default: return <Dashboard />;
+        return user?.role === UserRole.ADMIN ? <Configuracoes onNotify={showToast} /> : <Monitoramento />;
+      default: 
+        // Define página padrão baseada no perfil do usuário
+        return user?.role === UserRole.OPERADOR ? <Monitoramento /> : <Dashboard />;
     }
   };
 

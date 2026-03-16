@@ -25,6 +25,7 @@ import { Equipe, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO 
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
 import { useAuth } from '../contexts/AuthContext';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface GestaoEquipesProps {
   onNotify?: (msg: string, type: ToastType) => void;
@@ -40,11 +41,26 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   const [civis, setCivis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTurnoId, setSelectedTurnoId] = useState('');
-  
+
   // Estados para paginação e filtro
   const [currentPage, setCurrentPage] = useState(1);
   const [dataFilter, setDataFilter] = useState('');
   const itemsPerPage = 24; // 6 colunas x 4 linhas = 24 equipes por página
+
+  // Estados do modal de confirmação
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
 
   // Modais de atribuição
   const [isChefeModalOpen, setIsChefeModalOpen] = useState<{ open: boolean, idEquipe: string | null }>({ open: false, idEquipe: null });
@@ -107,8 +123,8 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     if (!dataFilter) return true;
     const dataFormatada = new Date(turno.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
     const dataFiltro = new Date(dataFilter).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    return dataFormatada === dataFiltro || 
-           turno.periodo.toLowerCase().includes(dataFilter.toLowerCase());
+    return dataFormatada === dataFiltro ||
+      turno.periodo.toLowerCase().includes(dataFilter.toLowerCase());
   });
 
   const totalPages = Math.ceil(filteredTurnos.length / itemsPerPage);
@@ -161,10 +177,10 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     if (immediate) {
       try {
         await apiService.updateEquipe(id, updates);
-        
+
         // Emitir evento para atualizar monitoramento em tempo real
-        window.dispatchEvent(new CustomEvent('equipeAtualizada', { 
-          detail: { idEquipe: id, updates, idTurno: selectedTurnoId } 
+        window.dispatchEvent(new CustomEvent('equipeAtualizada', {
+          detail: { idEquipe: id, updates, idTurno: selectedTurnoId }
         }));
       } catch (error) {
         onNotify?.("Erro ao salvar alterações.", "error");
@@ -177,10 +193,10 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
       debounceTimerRef.current[id] = setTimeout(async () => {
         try {
           await apiService.updateEquipe(id, updates);
-          
+
           // Emitir evento para atualizar monitoramento em tempo real
-          window.dispatchEvent(new CustomEvent('equipeAtualizada', { 
-            detail: { idEquipe: id, updates, idTurno: selectedTurnoId } 
+          window.dispatchEvent(new CustomEvent('equipeAtualizada', {
+            detail: { idEquipe: id, updates, idTurno: selectedTurnoId }
           }));
         } catch (error) {
           onNotify?.("Erro ao salvar alterações.", "error");
@@ -218,10 +234,10 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
       const createdEquipe = await apiService.createEquipe(newEquipe);
       await loadTurnoSpecificData(selectedTurnoId);
       onNotify?.("Equipe criada com sucesso!", "success");
-      
+
       // Emitir evento para atualizar monitoramento em tempo real
-      window.dispatchEvent(new CustomEvent('equipeCriada', { 
-        detail: { equipe: createdEquipe, idTurno: selectedTurnoId } 
+      window.dispatchEvent(new CustomEvent('equipeCriada', {
+        detail: { equipe: createdEquipe, idTurno: selectedTurnoId }
       }));
     } catch (error) {
       onNotify?.("Erro ao criar equipe.", "error");
@@ -229,19 +245,29 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   };
 
   const removeEquipe = async (id: string) => {
-    if (!window.confirm("Deseja realmente remover esta equipe?")) return;
-    try {
-      await apiService.deleteEquipe(id);
-      setEquipes(prev => prev.filter(e => e.id_equipe !== id));
-      onNotify?.("Equipe removida.", "warning");
-      
-      // Emitir evento para atualizar monitoramento em tempo real
-      window.dispatchEvent(new CustomEvent('equipeRemovida', { 
-        detail: { idEquipe: id, idTurno: selectedTurnoId } 
-      }));
-    } catch (error) {
-      onNotify?.("Erro ao remover equipe.", "error");
-    }
+    const equipe = equipes.find(e => e.id_equipe === id);
+    if (!equipe) return;
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Excluir Equipe',
+      message: `Tem certeza que deseja excluir a equipe ${equipe.nome_equipe || 'Sem nome'}? Esta ação não poderá ser desfeita e todos os componentes serão removidos da equipe.`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteEquipe(id);
+          setEquipes(prev => prev.filter(e => e.id_equipe !== id));
+          onNotify?.("Equipe removida.", "warning");
+
+          // Emitir evento para atualizar monitoramento em tempo real
+          window.dispatchEvent(new CustomEvent('equipeRemovida', {
+            detail: { idEquipe: id, idTurno: selectedTurnoId }
+          }));
+        } catch (error) {
+          onNotify?.("Erro ao remover equipe.", "error");
+        }
+      },
+      type: 'danger'
+    });
   };
 
   const handleAssignChefe = async (idEquipe: string | null, matricula: string) => {
@@ -313,13 +339,31 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
   };
 
   const handleRemoveComponente = async (idComponente: string) => {
-    try {
-      await apiService.deleteComponenteEquipe(idComponente);
-      await loadTurnoSpecificData(selectedTurnoId);
-      onNotify?.("Integrante removido.", "success");
-    } catch (error) {
-      onNotify?.("Erro ao remover integrante.", "error");
+    // Encontrar o componente para obter informações
+    let componenteNome = 'Componente';
+    for (const equipeId in componentesEquipe) {
+      const componente = componentesEquipe[equipeId].find(c => c.id_componente === idComponente);
+      if (componente) {
+        componenteNome = `${componente.nome_posto_grad} ${componente.nome_guerra}`;
+        break;
+      }
     }
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Remover Componente',
+      message: `Tem certeza que deseja remover ${componenteNome} da equipe?`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteComponenteEquipe(idComponente);
+          await loadTurnoSpecificData(selectedTurnoId);
+          onNotify?.("Integrante removido.", "success");
+        } catch (error) {
+          onNotify?.("Erro ao remover integrante.", "error");
+        }
+      },
+      type: 'warning'
+    });
   };
 
   const calculateTotalEfetivo = (equipe: Equipe) => {
@@ -355,14 +399,14 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
     return (
       <div className="space-y-10 page-transition">
         {/* Título e filtro na mesma linha */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 text-center sm:text-left">
+          <div className="w-full sm:w-auto flex flex-col items-center sm:items-start">
             <h2 className="text-4xl font-black tracking-tighter uppercase text-slate-900 dark:text-white">
               Gestão de <span className="text-primary">Equipes</span>
             </h2>
             <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Escolha um turno para configurar o dispositivo.</p>
           </div>
-          
+
           {/* Filtro de datas */}
           <div className="relative min-w-[250px]">
             <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
@@ -385,7 +429,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
         </div>
 
         {/* Grid de turnos com paginação - 6 colunas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 lg:gap-4">
           {paginatedTurnos.sort((a, b) => b.data.localeCompare(a.data)).map((t) => (
             <button
               key={t.id_turno}
@@ -424,23 +468,22 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
             >
               <ChevronLeft size={20} />
             </button>
-            
+
             <div className="flex gap-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const pageNum = i + 1;
                 const isActive = pageNum === currentPage;
                 const isNearCurrent = Math.abs(pageNum - currentPage) <= 2;
                 const shouldShow = pageNum === 1 || pageNum === totalPages || isNearCurrent;
-                
+
                 return shouldShow ? (
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
-                    className={`px-4 py-2 rounded-lg text-sm font-black transition-all ${
-                      isActive
+                    className={`px-4 py-2 rounded-lg text-sm font-black transition-all ${isActive
                         ? 'bg-primary text-white'
                         : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -449,7 +492,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                 );
               })}
             </div>
-            
+
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
@@ -467,15 +510,15 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
 
   return (
     <div className="space-y-8 page-transition">
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-6 text-black dark:text-white">
+      <div className="bg-white dark:bg-slate-900 p-6 lg:p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4 lg:gap-6 text-center lg:text-left">
+        <div className="flex flex-col lg:flex-row items-center gap-4 lg:gap-6 text-black dark:text-white w-full lg:w-auto">
           <button
             onClick={() => setSelectedTurnoId('')}
-            className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-primary transition-all"
+            className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-primary transition-all shrink-0"
           >
             <ArrowLeft size={20} />
           </button>
-          <div>
+          <div className="flex flex-col items-center lg:items-start">
             <h2 className="text-2xl font-black tracking-tighter uppercase">
               Gerenciamento de <span className="text-primary font-black">Equipes</span>
             </h2>
@@ -493,7 +536,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-8">
         {equipes.map((equipe) => {
           const statusCfg = getStatusConfig(equipe.status);
           const chefe = militares.find(m => m.matricula === equipe.matricula_militar);
@@ -689,7 +732,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                 />
               </div>
             </div>
-            <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
+            <div className="p-6 lg:p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
               {(() => {
                 const filteredMilitares = chamadaMilitar
                   .filter(cm => {
@@ -709,7 +752,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                     const isAvailable = !isChefeEmOutraEquipe && !isComponenteEmOutraEquipe;
                     return isAvailable;
                   });
-                
+
                 return filteredMilitares.map(cm => (
                   <button
                     key={cm.matricula}
@@ -755,7 +798,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                 />
               </div>
             </div>
-            <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
+            <div className="p-6 lg:p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
               {chamadaCivil
                 .filter(cc => {
                   const searchTerm = civilSearch.toLowerCase();
@@ -812,7 +855,7 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                 />
               </div>
             </div>
-            <div className="p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
+            <div className="p-6 lg:p-8 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-4 custom-scrollbar">
               {chamadaMilitar
                 .filter(cm => {
                   const searchTerm = militarSearch.toLowerCase();
@@ -848,6 +891,18 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
           </div>
         </div>
       )}
+      
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

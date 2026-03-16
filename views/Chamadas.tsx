@@ -3,7 +3,8 @@ import { Users, Calendar, Search, Plus, Trash2, Edit, Check, X, Clock, ChevronDo
 import { apiService } from '../apiService';
 import { ToastType } from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
-import { ChamadaMilitar, FuncaoMilitar } from '../types';
+import { ChamadaMilitar, FuncaoMilitar, StatusPresenca } from '../types';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface ChamadasProps {
   onNotify?: (msg: string, type: ToastType) => void;
@@ -20,6 +21,21 @@ const Chamadas: React.FC<ChamadasProps> = ({ onNotify }) => {
   const [pendingMilitares, setPendingMilitares] = useState<string[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Estados do modal de confirmação
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
 
   useEffect(() => {
     // Só carregar dados quando autenticação estiver completa e usuário estiver autenticado
@@ -113,22 +129,35 @@ const Chamadas: React.FC<ChamadasProps> = ({ onNotify }) => {
   };
 
   const removeMilitarChamada = async (id: string) => {
-    if (!confirm("Remover este militar da escala?")) return;
-    try {
-      await apiService.deleteChamadaMilitar(id);
-      setChamadaMilitar(prev => prev.filter(m => m.id_chamada_militar !== id));
-      onNotify?.("Registro removido.", "warning");
-    } catch (error) {
-      onNotify?.("Erro ao remover registro.", "error");
-    }
+    const chamada = chamadaMilitar.find(m => m.id_chamada_militar === id);
+    if (!chamada) return;
+    
+    const militar = militares.find(m => m.matricula === chamada.matricula);
+    const militarNome = militar ? `${militar.nome_posto_grad} ${militar.nome_guerra}` : 'Militar não encontrado';
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Remover Militar da Chamada',
+      message: `Tem certeza que deseja remover ${militarNome} (${chamada.matricula}) da chamada deste turno?`,
+      onConfirm: async () => {
+        try {
+          await apiService.deleteChamadaMilitar(id);
+          setChamadaMilitar(prev => prev.filter(m => m.id_chamada_militar !== id));
+          onNotify?.("Registro removido.", "warning");
+        } catch (error) {
+          onNotify?.("Erro ao remover registro.", "error");
+        }
+      },
+      type: 'warning'
+    });
   };
 
   const sortedTurnos = [...turnos].sort((a, b) => b.data.localeCompare(a.data));
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div>
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+        <div className="w-full md:w-auto flex flex-col items-center md:items-start">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ClipboardCheck className="text-blue-600" /> Chamada Militar
           </h2>
@@ -205,7 +234,44 @@ const Chamadas: React.FC<ChamadasProps> = ({ onNotify }) => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            {/* Mobile Cards Layout */}
+            <div className="sm:hidden space-y-3">
+              {chamadaMilitar.map(cm => {
+                const m = militares.find(mil => mil.matricula === cm.matricula);
+                return m ? (
+                  <div key={cm.id_chamada_militar} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="font-bold text-slate-900 dark:text-white text-sm">{m.nome_posto_grad} {m.nome_guerra}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{m.matricula}</div>
+                      </div>
+                      <button onClick={() => removeMilitarChamada(cm.id_chamada_militar)} className="text-slate-300 hover:text-red-500 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <select
+                        value={cm.funcao}
+                        onChange={e => updateMilitarChamada(cm.id_chamada_militar, { funcao: e.target.value as FuncaoMilitar })}
+                        className="flex-1 px-3 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 outline-none hover:bg-slate-200 cursor-pointer"
+                      >
+                        <option value={FuncaoMilitar.COMBATENTE}>Combatente</option>
+                        <option value={FuncaoMilitar.SCI}>SCI</option>
+                      </select>
+                      <button
+                        onClick={() => updateMilitarChamada(cm.id_chamada_militar, { presenca: cm.presenca === StatusPresenca.PRESENTE ? StatusPresenca.AUSENTE : StatusPresenca.PRESENTE })}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all shadow-sm ${cm.presenca ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40' : 'bg-red-100 text-red-700 dark:bg-red-900/40'}`}
+                      >
+                        {cm.presenca ? 'PRESENTE' : 'AUSENTE'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null;
+              })}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <table className="w-full text-sm hidden sm:block">
               <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-800">
                 <tr>
                   <th className="p-4 text-left font-bold text-slate-500 uppercase text-[10px]">Militar</th>
@@ -235,7 +301,7 @@ const Chamadas: React.FC<ChamadasProps> = ({ onNotify }) => {
                       </td>
                       <td className="p-4 text-center">
                         <button
-                          onClick={() => updateMilitarChamada(cm.id_chamada_militar, { presenca: !cm.presenca })}
+                          onClick={() => updateMilitarChamada(cm.id_chamada_militar, { presenca: cm.presenca === StatusPresenca.PRESENTE ? StatusPresenca.AUSENTE : StatusPresenca.PRESENTE })}
                           className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all shadow-sm ${cm.presenca ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40' : 'bg-red-100 text-red-700 dark:bg-red-900/40'}`}
                         >
                           {cm.presenca ? 'PRESENTE' : 'AUSENTE'}
@@ -259,6 +325,18 @@ const Chamadas: React.FC<ChamadasProps> = ({ onNotify }) => {
           Selecione um turno para realizar a chamada militar.
         </div>
       )}
+      
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText="Remover"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };
