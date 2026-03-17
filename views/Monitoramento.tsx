@@ -141,29 +141,22 @@ const Monitoramento: React.FC = () => {
   }, [isFullscreen]);
 
   const toggleFullscreen = async () => {
-    console.log('Botão fullscreen clicado. Estado atual:', isFullscreen);
 
     try {
       if (!isFullscreen) {
-        console.log('Tentando entrar em fullscreen...');
 
         // Tentar entrar em fullscreen
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen();
-          console.log('requestFullscreen chamado');
         } else {
-          console.log('Fallback: simulando fullscreen com CSS');
           setIsFullscreen(true);
         }
       } else {
-        console.log('Tentando sair do fullscreen...');
 
         // Tentar sair do fullscreen
         if (document.exitFullscreen) {
           await document.exitFullscreen();
-          console.log('exitFullscreen chamado');
         } else {
-          console.log('Fallback: saindo do fullscreen simulado');
           setIsFullscreen(false);
         }
       }
@@ -335,7 +328,6 @@ const Monitoramento: React.FC = () => {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('Botão clicado diretamente');
             toggleFullscreen();
           }}
           className="absolute top-6 right-6 p-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-2xl transition-all hover:scale-105 border border-blue-600/30 z-50 cursor-pointer"

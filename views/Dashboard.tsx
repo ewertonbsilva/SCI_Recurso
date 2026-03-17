@@ -101,12 +101,6 @@ const Dashboard: React.FC = () => {
         setChamadaMilitar(cmData);
         setEquipes(eqData);
       }
-      console.log('Dados do dashboard carregados:', {
-        militares: militaresData.length,
-        civis: civisData.length,
-        turnos: turnosData.length,
-        totalEquipes: allEquipesData.length
-      });
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
     } finally {

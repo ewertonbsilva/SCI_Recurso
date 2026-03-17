@@ -266,7 +266,6 @@ const Cadastros: React.FC = () => {
 
   // Função de notificação local
   const onNotify = (msg: string, type: ToastType) => {
-    console.log(`${type.toUpperCase()}: ${msg}`);
   };
 
   // Monitorar mudanças no tema
@@ -314,7 +313,6 @@ const Cadastros: React.FC = () => {
   const loadDadosFromAPI = async () => {
     try {
       setLoading(true);
-      console.log('Carregando dados da API...');
 
       const [militaresData, civisData, atestadosData, postosData, forcasData, orgaosOrigemData, ubmsData] = await Promise.all([
         apiService.getMilitares(),
@@ -334,15 +332,6 @@ const Cadastros: React.FC = () => {
       setOrgaosOrigem(orgaosOrigemData);
       setUbms(ubmsData);
 
-      console.log('Dados carregados com sucesso:', {
-        militares: militaresData.length,
-        civis: civisData.length,
-        atestados: atestadosData.length,
-        postos: postosData.length,
-        forcas: forcasData.length,
-        orgaosOrigem: orgaosOrigemData.length,
-        ubms: ubmsData.length
-      });
     } catch (error) {
       console.error('Erro ao carregar dados da API:', error);
       onNotify?.('Erro ao carregar dados do banco de dados', 'error');

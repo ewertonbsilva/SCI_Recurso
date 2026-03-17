@@ -108,7 +108,6 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
       setLoading(true);
       const turnos = await apiService.getTurnos();
       setApiTurnos(turnos);
-      console.log('Turnos carregados da API:', turnos);
     } catch (error) {
       console.error('Erro ao carregar turnos da API:', error);
       onNotify?.('Erro ao carregar turnos do banco de dados', 'error');

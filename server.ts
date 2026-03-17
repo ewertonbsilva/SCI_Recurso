@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeDatabase } from './db';
 import { errorHandler } from './middleware/errorHandler';
+import { loggingMiddleware } from './middleware/logging';
 
 // Routers
 import authRouter from './routes/auth.routes';
@@ -12,6 +13,7 @@ import turnosRouter from './routes/turnos.routes';
 import dashboardRouter from './routes/dashboard.routes';
 import adminRouter from './routes/admin.routes';
 import ubmRouter from './routes/ubm.routes';
+import logsRouter from './routes/logs.routes';
 
 // Load environment variables
 dotenv.config();
@@ -22,6 +24,7 @@ const PORT = process.env.PORT || 3001;
 // ── Middleware ──────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
+app.use(loggingMiddleware); // Middleware de logging automático
 
 // ── Health check ────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -34,6 +37,7 @@ app.use('/api/militares', militaresRouter);
 app.use('/api/civis', divisRouter);
 app.use('/api/turnos', turnosRouter);
 app.use('/api/ubms', ubmRouter);
+app.use('/api/logs', logsRouter);
 app.use('/api', turnosRouter);      // turnos, chamadas, equipes (paths já incluem /turnos etc.)
 app.use('/api', dashboardRouter);   // dashboard, vw/*, sp/*, database-objects
 app.use('/api', adminRouter);       // users, atestados, logs, debug

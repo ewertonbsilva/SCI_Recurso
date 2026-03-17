@@ -41,6 +41,54 @@ export async function initializeDatabase(): Promise<mysql.Pool> {
       )
     `);
 
+        // Tabela de Logs do Sistema
+        await pool.query(`
+      CREATE TABLE IF NOT EXISTS logs_sistema (
+        id_log VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        usuario VARCHAR(100) NOT NULL,
+        acao VARCHAR(50) NOT NULL,
+        entidade VARCHAR(50) NOT NULL,
+        registro_id VARCHAR(36),
+        descricao TEXT,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+        // Índices para performance (versão compatível com MySQL)
+        try {
+            await pool.query(`
+        CREATE INDEX idx_logs_data_hora ON logs_sistema(data_hora DESC)
+      `);
+        } catch (error: any) {
+            // Ignorar erro se índice já existir
+            if (error.code !== 'ER_DUP_KEYNAME') {
+                console.warn('Aviso ao criar índice idx_logs_data_hora:', error.message);
+            }
+        }
+        
+        try {
+            await pool.query(`
+        CREATE INDEX idx_logs_usuario ON logs_sistema(usuario)
+      `);
+        } catch (error: any) {
+            if (error.code !== 'ER_DUP_KEYNAME') {
+                console.warn('Aviso ao criar índice idx_logs_usuario:', error.message);
+            }
+        }
+        
+        try {
+            await pool.query(`
+        CREATE INDEX idx_logs_acao ON logs_sistema(acao)
+      `);
+        } catch (error: any) {
+            if (error.code !== 'ER_DUP_KEYNAME') {
+                console.warn('Aviso ao criar índice idx_logs_acao:', error.message);
+            }
+        }
+
         console.log('✅ Banco de dados inicializado com sucesso (Connection Pool)');
         return pool;
     } catch (error) {

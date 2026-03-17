@@ -100,7 +100,6 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   const loadDadosFromAPI = async () => {
     try {
       setLoading(true);
-      console.log('Procurando turno com ID:', id_turno);
       const [turnosData, chamadaMilData, chamadaCivData, militaresData, civisData, atestadosData] = await Promise.all([
         apiService.getTurnos(),
         apiService.getChamadaMilitar(id_turno),
@@ -115,8 +114,6 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
       setMilitares(militaresData);
       setCivis(civisData);
       setAtestados(atestadosData);
-      console.log('Dados do turno carregados:', { turnos: turnosData, chamadaMil: chamadaMilData, chamadaCiv: chamadaCivData });
-      console.log('Turnos disponíveis:', turnosData.map(t => ({ id: t.id_turno, data: t.data, periodo: t.periodo })));
     } catch (error) {
       console.error('Erro ao carregar dados do turno:', error);
       onNotify?.('Erro ao carregar dados do banco de dados', 'error');
@@ -150,7 +147,6 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
         presenca: StatusPresenca.AUSENTE
       }));
       
-      console.log('Dados enviados:', newEntries[0]); // Debug
       
       // Enviar cada militar individualmente
       for (const entry of newEntries) {
@@ -284,7 +280,6 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
 
       // Handle 404 errors - record may have been deleted or data is stale
       if (error.message && error.message.includes('404')) {
-        console.log('Record not found, reloading data...');
         onNotify?.('Registro não encontrado. Recarregando dados...', 'warning');
         await loadDadosFromAPI();
         return;
@@ -347,7 +342,6 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
 
           // Handle 404 errors - record may have already been deleted
           if (error.message && error.message.includes('404')) {
-            console.log('Record not found, reloading data...');
             onNotify?.('Registro já foi removido. Recarregando dados...', 'warning');
             await loadDadosFromAPI();
             return;

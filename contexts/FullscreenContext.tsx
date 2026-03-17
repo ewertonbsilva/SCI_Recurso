@@ -31,7 +31,6 @@ export const FullscreenProvider: React.FC<FullscreenProviderProps> = ({ children
         doc.mozFullScreenElement ||
         doc.msFullscreenElement
       );
-      console.log('Fullscreen change detectado:', isCurrentlyFullscreen);
       setIsFullscreen(isCurrentlyFullscreen);
     };
 

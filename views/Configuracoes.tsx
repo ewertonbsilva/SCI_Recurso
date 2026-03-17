@@ -16,18 +16,24 @@ import {
     Lock,
     Key,
     UserCircle,
-    User as UserIcon
+    User as UserIcon,
+    Activity,
+    Search,
+    Filter,
+    Calendar,
+    Clock
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
 import ConfirmModal from '../components/ConfirmModal';
+import LogsView from './LogsView';
 
 interface ConfiguracoesProps {
     onNotify?: (msg: string, type: ToastType) => void;
 }
 
-type TabType = 'usuarios' | 'forcas' | 'postos' | 'orgaos' | 'ubms';
+type TabType = 'usuarios' | 'forcas' | 'postos' | 'orgaos' | 'ubms' | 'logs';
 
 const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
     const [activeTab, setActiveTab] = useState<TabType>('usuarios');
@@ -300,6 +306,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
             { id: 'postos', label: 'Postos/Grad', icon: <Award size={18} /> },
             { id: 'orgaos', label: 'Órgãos', icon: <Building2 size={18} /> },
             { id: 'ubms', label: 'UBMs', icon: <MapPin size={18} /> },
+            { id: 'logs', label: 'Logs', icon: <Activity size={18} /> },
         ];
 
         return (
@@ -328,7 +335,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
                 </div>
                 <button
                     onClick={() => setIsAdding(!isAdding)}
-                    className="relative flex items-center gap-2 px-4 py-2.5 rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest transition-all duration-300 overflow-hidden group bg-slate-900 dark:bg-primary text-white hover:scale-105 active:scale-95 shadow-xl"
+                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest transition-all duration-300 overflow-hidden group ${activeTab === 'logs' ? 'hidden' : 'bg-slate-900 dark:bg-primary text-white hover:scale-105 active:scale-95 shadow-xl'}`}
                 >
                     {isAdding ? <X size={18} /> : (activeTab === 'usuarios' ? <UserPlus size={18} /> : <Plus size={18} />)}
                     <span className="relative z-10 text-[10px]">{isAdding ? 'CANCELAR' : 'NOVO'}</span>
@@ -352,6 +359,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onNotify }) => {
             case 'postos': return renderPostosTable();
             case 'orgaos': return renderGenericTable('id_orgao_origem', 'nome_orgao', 'orgaos_origem');
             case 'ubms': return renderGenericTable('id_ubm', 'nome_ubm', 'ubms');
+            case 'logs': return <LogsView onNotify={onNotify} />;
         }
     };
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getConnection } from '../db';
 import { hashPassword, comparePassword, generateToken, authenticateToken, AuthRequest } from '../auth';
 import { validateBody, authSchema } from '../middleware/validate';
+import { LogService } from '../services/logService';
 
 const router = Router();
 
@@ -26,6 +27,10 @@ router.post('/login', validateBody(authSchema), async (req: any, res: any, next:
         }
 
         const token = generateToken({ id: user.id, username: user.username, nome: user.nome, role: user.role });
+        
+        // Registrar log de login
+        await LogService.logLogin(username, req);
+        
         res.json({ token, user: { id: user.id, username: user.username, nome: user.nome, role: user.role } });
     } catch (err) {
         next(err);
@@ -53,6 +58,10 @@ router.post('/register', async (req: any, res: any, next: any) => {
         );
 
         const token = generateToken({ id: userId, username, nome, role });
+        
+        // Registrar log de criação de usuário
+        await LogService.logCreate(username, 'USUARIO', userId, `Usuário ${nome} foi criado`, req);
+        
         res.status(201).json({ token, user: { id: userId, username, nome, role } });
     } catch (err) {
         next(err);
