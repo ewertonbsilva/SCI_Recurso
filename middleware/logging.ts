@@ -89,16 +89,17 @@ export function loggingMiddleware(req: Request, res: Response, next: NextFunctio
         }
       }
 
-      // Registrar log apenas para operações que modificam dados ou para erros
-      if (acao !== 'READ' || res.statusCode >= 400) {
+      // Registrar log apenas para operações com erro (status >= 400) ou fallback
+      // O sistema agora possui logs detalhados (LogService.logDetalhado) nativamente em cada rota.
+      if (res.statusCode >= 400) {
         await LogService.log({
           usuario,
           acao,
           entidade,
           registro_id: registroId,
           descricao,
-          ip_address: req.ip,
-          user_agent: req.get('User-Agent')
+          ip_address: req.ip as string | undefined,
+          user_agent: req.get('User-Agent') as string | undefined
         });
       }
     } catch (error) {

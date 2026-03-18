@@ -41,15 +41,6 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: any, next: any)
             })
         ]);
 
-        // Registrar log de acesso aos logs
-        await LogService.logRead(
-            req.user?.username || 'unknown',
-            'LOGS',
-            undefined,
-            `Acessou logs com filtros: ${JSON.stringify(filters)}`,
-            req
-        );
-
         res.json({
             logs,
             total,

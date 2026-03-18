@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Calendar, User, Activity, Clock } from 'lucide-react';
+import { Search, Filter, Calendar, User, Activity, Clock, Eye } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ToastType } from '../components/Toast';
+import LogDetailModal from '../components/LogDetailModal';
 
 interface LogEntry {
   id_log: string;
@@ -40,6 +41,10 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
   const [pagina, setPagina] = useState(1);
   const [total, setTotal] = useState(0);
   const [limite] = useState(50);
+  
+  // Modal de detalhes
+  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   useEffect(() => {
     console.log('=== VERIFICAÇÃO DE AUTENTICAÇÃO ===');
@@ -201,6 +206,16 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
     setDataInicio('');
     setDataFim('');
     setPagina(1);
+  };
+
+  const openLogDetail = (log: LogEntry) => {
+    setSelectedLog(log);
+    setIsDetailModalOpen(true);
+  };
+
+  const closeLogDetail = () => {
+    setIsDetailModalOpen(false);
+    setSelectedLog(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -410,6 +425,9 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     IP
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
@@ -437,6 +455,16 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {log.ip_address}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => openLogDetail(log)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/30 transition-colors"
+                        title="Ver detalhes"
+                      >
+                        <Eye size={14} />
+                        Ver
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -470,6 +498,13 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
           </button>
         </div>
       )}
+
+      {/* Modal de Detalhes do Log */}
+      <LogDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={closeLogDetail}
+        log={selectedLog}
+      />
     </div>
   );
 };

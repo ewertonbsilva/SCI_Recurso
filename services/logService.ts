@@ -24,8 +24,8 @@ export class LogService {
     try {
       const connection = getConnection();
       await connection.query(
-        `INSERT INTO logs_sistema (usuario, acao, entidade, registro_id, descricao, ip_address, user_agent)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO logs_sistema (usuario, acao, entidade, registro_id, descricao, ip_address, user_agent, data_hora)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           entry.usuario,
           entry.acao,
@@ -33,7 +33,8 @@ export class LogService {
           entry.registro_id || null,
           entry.descricao || null,
           entry.ip_address || null,
-          entry.user_agent || null
+          entry.user_agent || null,
+          new Date()
         ]
       );
     } catch (error) {
@@ -77,14 +78,11 @@ export class LogService {
         descricaoDetalhada += ` | Turno: ${entry.turno_info}`;
       }
       
-      // Adicionar data/hora se disponível
-      if (entry.data_hora) {
-        descricaoDetalhada += ` | ${entry.data_hora}`;
-      }
+      // Remover a adição explícita da data na descrição, pois a tabela a registra na coluna data_hora.
       
       await connection.query(
-        `INSERT INTO logs_sistema (usuario, acao, entidade, registro_id, descricao, ip_address, user_agent)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO logs_sistema (usuario, acao, entidade, registro_id, descricao, ip_address, user_agent, data_hora)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           entry.usuario,
           entry.acao,
@@ -92,7 +90,8 @@ export class LogService {
           entry.registro_id || null,
           descricaoDetalhada || null,
           entry.ip_address || null,
-          entry.user_agent || null
+          entry.user_agent || null,
+          new Date()
         ]
       );
     } catch (error) {

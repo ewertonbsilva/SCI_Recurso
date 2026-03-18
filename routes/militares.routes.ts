@@ -49,8 +49,7 @@ router.post('/', validateBody(militarSchema), async (req: any, res: any, next: a
             descricao: `Criado militar ${nome_guerra || matricula} - ${nome_completo}`,
             ip_address: req.ip,
             user_agent: req.get('User-Agent'),
-            dados_novos: { matricula, nome_completo, nome_guerra, id_posto_grad, id_ubm },
-            data_hora: new Date().toLocaleString('pt-BR')
+            dados_novos: { matricula, nome_completo, nome_guerra, id_posto_grad, id_ubm }
         });
         
         res.json({ matricula, ...req.body });
@@ -91,8 +90,7 @@ router.put('/:matricula', async (req: any, res: any, next: any) => {
             ip_address: req.ip,
             user_agent: req.get('User-Agent'),
             dados_antigos: dadosAntigos,
-            dados_novos: dadosNovos,
-            data_hora: new Date().toLocaleString('pt-BR')
+            dados_novos: dadosNovos
         });
         
         res.json({ matricula, ...req.body });
@@ -124,8 +122,7 @@ router.delete('/:matricula', async (req: any, res: any, next: any) => {
             descricao: `Excluído militar ${militar?.nome_guerra || matricula} - ${militar?.nome_completo || ''}`,
             ip_address: req.ip,
             user_agent: req.get('User-Agent'),
-            dados_antigos: militar,
-            data_hora: new Date().toLocaleString('pt-BR')
+            dados_antigos: militar
         });
         
         res.json({ message: 'Militar deletado com sucesso' });

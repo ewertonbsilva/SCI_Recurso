@@ -18,6 +18,7 @@ export async function initializeDatabase(): Promise<mysql.Pool> {
             database: process.env.DB_NAME || 'sci_recurso',
             user: process.env.DB_USER || 'root',
             password: process.env.DB_PASSWORD || '',
+            timezone: '-05:00',
             waitForConnections: true,
             connectionLimit: 10,
             maxIdle: 10, // max idle connections, the default value is the same as `connectionLimit`

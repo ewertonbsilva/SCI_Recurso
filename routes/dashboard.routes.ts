@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getConnection } from '../db';
 import { authenticateToken } from '../auth';
+import { LogService } from '../services/logService';
 
 const router = Router();
 
@@ -30,6 +31,18 @@ router.post('/postos-grad', async (req: any, res: any, next: any) => {
         const [newPosto] = await getConnection().query(
             'SELECT * FROM posto_grad ORDER BY id_posto_grad DESC LIMIT 1'
         );
+        
+        await LogService.logDetalhado({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'CREATE',
+            entidade: 'posto_grad',
+            registro_id: (newPosto as any)[0]?.id_posto_grad?.toString(),
+            descricao: `Criado posto/graduação ${nomeUppercase}`,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined,
+            dados_novos: (newPosto as any)[0]
+        });
+
         res.status(201).json(newPosto[0]);
     } catch (err) { next(err); }
 });
@@ -40,6 +53,9 @@ router.put('/postos-grad/:id', async (req: any, res: any, next: any) => {
         const { id } = req.params;
         const { nome_posto_grad, hierarquia } = req.body;
         const nomeUppercase = nome_posto_grad.toUpperCase();
+        
+        const [dadosAntigosResult] = await getConnection().query('SELECT * FROM posto_grad WHERE id_posto_grad = ?', [id]);
+        const dadosAntigos = (dadosAntigosResult as any)[0];
         
         const [result] = await getConnection().query(
             'UPDATE posto_grad SET nome_posto_grad = ?, hierarquia = ? WHERE id_posto_grad = ?',
@@ -54,6 +70,33 @@ router.put('/postos-grad/:id', async (req: any, res: any, next: any) => {
             'SELECT * FROM posto_grad WHERE id_posto_grad = ?',
             [id]
         );
+        
+        // Construir descrição detalhada apenas para campos relevantes
+        let descricao = `Atualizado posto/graduação ${nomeUppercase}`;
+        const alteracoes = [];
+        
+        if (dadosAntigos && dadosAntigos.nome_posto_grad !== nomeUppercase) {
+            alteracoes.push(`nome_posto_grad: "${dadosAntigos.nome_posto_grad}" → "${nomeUppercase}"`);
+        }
+        
+        if (dadosAntigos && dadosAntigos.hierarquia !== hierarquia) {
+            alteracoes.push(`hierarquia: "${dadosAntigos.hierarquia}" → "${hierarquia}"`);
+        }
+        
+        if (alteracoes.length > 0) {
+            descricao += ` | Alterações: ${alteracoes.join(', ')}`;
+        }
+        
+        await LogService.log({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'UPDATE',
+            entidade: 'posto_grad',
+            registro_id: id,
+            descricao: descricao,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined
+        });
+
         res.json(updatedPosto[0]);
     } catch (err) { next(err); }
 });
@@ -62,6 +105,10 @@ router.put('/postos-grad/:id', async (req: any, res: any, next: any) => {
 router.delete('/postos-grad/:id', async (req: any, res: any, next: any) => {
     try {
         const { id } = req.params;
+        
+        const [dadosAntigosResult] = await getConnection().query('SELECT * FROM posto_grad WHERE id_posto_grad = ?', [id]);
+        const dadosAntigos = (dadosAntigosResult as any)[0];
+        
         const [result] = await getConnection().query(
             'DELETE FROM posto_grad WHERE id_posto_grad = ?',
             [id]
@@ -71,6 +118,17 @@ router.delete('/postos-grad/:id', async (req: any, res: any, next: any) => {
             return res.status(404).json({ error: 'Posto/Grad not found' });
         }
         
+        await LogService.logDetalhado({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'DELETE',
+            entidade: 'posto_grad',
+            registro_id: id,
+            descricao: `Excluído posto/graduação ${dadosAntigos?.nome_posto_grad || id}`,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined,
+            dados_antigos: dadosAntigos
+        });
+
         res.json({ message: 'Posto/Grad deleted successfully' });
     } catch (err) { next(err); }
 });
@@ -96,6 +154,18 @@ router.post('/forcas', async (req: any, res: any, next: any) => {
         const [newForca] = await getConnection().query(
             'SELECT * FROM forcas ORDER BY id_forca DESC LIMIT 1'
         );
+        
+        await LogService.logDetalhado({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'CREATE',
+            entidade: 'forcas',
+            registro_id: (newForca as any)[0]?.id_forca?.toString(),
+            descricao: `Criada força ${nomeUppercase}`,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined,
+            dados_novos: (newForca as any)[0]
+        });
+
         res.status(201).json(newForca[0]);
     } catch (err) { next(err); }
 });
@@ -106,6 +176,9 @@ router.put('/forcas/:id', async (req: any, res: any, next: any) => {
         const { id } = req.params;
         const { nome_forca } = req.body;
         const nomeUppercase = nome_forca.toUpperCase();
+        
+        const [dadosAntigosResult] = await getConnection().query('SELECT * FROM forcas WHERE id_forca = ?', [id]);
+        const dadosAntigos = (dadosAntigosResult as any)[0];
         
         const [result] = await getConnection().query(
             'UPDATE forcas SET nome_forca = ? WHERE id_forca = ?',
@@ -120,6 +193,23 @@ router.put('/forcas/:id', async (req: any, res: any, next: any) => {
             'SELECT * FROM forcas WHERE id_forca = ?',
             [id]
         );
+        
+        // Construir descrição detalhada apenas para campos relevantes
+        let descricao = `Atualizada força ${nomeUppercase}`;
+        if (dadosAntigos && dadosAntigos.nome_forca !== nomeUppercase) {
+            descricao += ` | Alterações: nome_forca: "${dadosAntigos.nome_forca}" → "${nomeUppercase}"`;
+        }
+        
+        await LogService.log({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'UPDATE',
+            entidade: 'forcas',
+            registro_id: id,
+            descricao: descricao,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined
+        });
+
         res.json(updatedForca[0]);
     } catch (err) { next(err); }
 });
@@ -128,6 +218,10 @@ router.put('/forcas/:id', async (req: any, res: any, next: any) => {
 router.delete('/forcas/:id', async (req: any, res: any, next: any) => {
     try {
         const { id } = req.params;
+        
+        const [dadosAntigosResult] = await getConnection().query('SELECT * FROM forcas WHERE id_forca = ?', [id]);
+        const dadosAntigos = (dadosAntigosResult as any)[0];
+        
         const [result] = await getConnection().query(
             'DELETE FROM forcas WHERE id_forca = ?',
             [id]
@@ -137,6 +231,17 @@ router.delete('/forcas/:id', async (req: any, res: any, next: any) => {
             return res.status(404).json({ error: 'Força not found' });
         }
         
+        await LogService.logDetalhado({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'DELETE',
+            entidade: 'forcas',
+            registro_id: id,
+            descricao: `Excluída força ${dadosAntigos?.nome_forca || id}`,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined,
+            dados_antigos: dadosAntigos
+        });
+
         res.json({ message: 'Força deleted successfully' });
     } catch (err) { next(err); }
 });
@@ -154,8 +259,20 @@ router.post('/ubms', async (req: any, res: any, next: any) => {
     try {
         const { nome_ubm } = req.body;
         const idResult = await getConnection().query('CALL sp_gerar_id_ubm()');
-        const id = idResult[0][0].id_ubm;
+        const id = (idResult as any)[0][0].id_ubm;
         await getConnection().query('INSERT INTO ubms (id_ubm, nome_ubm) VALUES (?, ?)', [id, nome_ubm]);
+        
+        await LogService.logDetalhado({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'CREATE',
+            entidade: 'ubms',
+            registro_id: id?.toString(),
+            descricao: `Criada UBM ${nome_ubm}`,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined,
+            dados_novos: { id_ubm: id, nome_ubm }
+        });
+
         res.json({ id_ubm: id, nome_ubm });
     } catch (err) { next(err); }
 });
@@ -181,7 +298,19 @@ router.post('/orgaos-origem', async (req: any, res: any, next: any) => {
         const [newOrgao] = await getConnection().query(
             'SELECT * FROM orgaos_origem ORDER BY id_orgao_origem DESC LIMIT 1'
         );
-        res.status(201).json(newOrgao[0]);
+        
+        await LogService.logDetalhado({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'CREATE',
+            entidade: 'orgaos_origem',
+            registro_id: (newOrgao as any)[0]?.id_orgao_origem?.toString(),
+            descricao: `Criado órgão de origem ${nomeUppercase}`,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined,
+            dados_novos: (newOrgao as any)[0]
+        });
+
+        res.status(201).json((newOrgao as any)[0]);
     } catch (err) { next(err); }
 });
 
@@ -191,6 +320,9 @@ router.put('/orgaos-origem/:id', async (req: any, res: any, next: any) => {
         const { id } = req.params;
         const { nome_orgao } = req.body;
         const nomeUppercase = nome_orgao.toUpperCase();
+        
+        const [dadosAntigosResult] = await getConnection().query('SELECT * FROM orgaos_origem WHERE id_orgao_origem = ?', [id]);
+        const dadosAntigos = (dadosAntigosResult as any)[0];
         
         const [result] = await getConnection().query(
             'UPDATE orgaos_origem SET nome_orgao = ? WHERE id_orgao_origem = ?',
@@ -205,7 +337,24 @@ router.put('/orgaos-origem/:id', async (req: any, res: any, next: any) => {
             'SELECT * FROM orgaos_origem WHERE id_orgao_origem = ?',
             [id]
         );
-        res.json(updatedOrgao[0]);
+        
+        // Construir descrição detalhada apenas para campos relevantes
+        let descricao = `Atualizado órgão de origem ${nomeUppercase}`;
+        if (dadosAntigos && dadosAntigos.nome_orgao !== nomeUppercase) {
+            descricao += ` | Alterações: nome_orgao: "${dadosAntigos.nome_orgao}" → "${nomeUppercase}"`;
+        }
+        
+        await LogService.log({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'UPDATE',
+            entidade: 'orgaos_origem',
+            registro_id: id?.toString(),
+            descricao: descricao,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined
+        });
+
+        res.json((updatedOrgao as any)[0]);
     } catch (err) { next(err); }
 });
 
@@ -213,6 +362,10 @@ router.put('/orgaos-origem/:id', async (req: any, res: any, next: any) => {
 router.delete('/orgaos-origem/:id', async (req: any, res: any, next: any) => {
     try {
         const { id } = req.params;
+        
+        const [dadosAntigosResult] = await getConnection().query('SELECT * FROM orgaos_origem WHERE id_orgao_origem = ?', [id]);
+        const dadosAntigos = (dadosAntigosResult as any)[0];
+        
         const [result] = await getConnection().query(
             'DELETE FROM orgaos_origem WHERE id_orgao_origem = ?',
             [id]
@@ -222,6 +375,17 @@ router.delete('/orgaos-origem/:id', async (req: any, res: any, next: any) => {
             return res.status(404).json({ error: 'Orgão not found' });
         }
         
+        await LogService.logDetalhado({
+            usuario: req.user?.nome || 'Usuário não identificado',
+            acao: 'DELETE',
+            entidade: 'orgaos_origem',
+            registro_id: id?.toString(),
+            descricao: `Excluído órgão de origem ${dadosAntigos?.nome_orgao || id}`,
+            ip_address: req.ip as string | undefined,
+            user_agent: req.get('User-Agent') as string | undefined,
+            dados_antigos: dadosAntigos
+        });
+
         res.json({ message: 'Orgão deleted successfully' });
     } catch (err) { next(err); }
 });
