@@ -9,6 +9,11 @@ export interface LogEntry {
   descricao?: string;
   ip_address?: string;
   user_agent?: string;
+  // Campos adicionais para detalhamento
+  dados_antigos?: any;
+  dados_novos?: any;
+  turno_info?: string;
+  data_hora?: string;
 }
 
 export class LogService {
@@ -34,6 +39,64 @@ export class LogService {
     } catch (error) {
       console.error('Erro ao registrar log:', error);
       // Não lançar erro para não interromper o fluxo principal
+    }
+  }
+
+  /**
+   * Registra uma ação com detalhes específicos
+   */
+  static async logDetalhado(entry: LogEntry & {
+    dados_antigos?: any;
+    dados_novos?: any;
+    turno_info?: string;
+    data_hora?: string;
+  }): Promise<void> {
+    try {
+      const connection = getConnection();
+      
+      // Construir descrição detalhada
+      let descricaoDetalhada = entry.descricao || '';
+      
+      if (entry.dados_antigos && entry.dados_novos) {
+        const alteracoes = [];
+        
+        // Comparar objetos e identificar mudanças
+        for (const key in entry.dados_novos) {
+          if (entry.dados_antigos[key] !== entry.dados_novos[key]) {
+            alteracoes.push(`${key}: "${entry.dados_antigos[key]}" → "${entry.dados_novos[key]}"`);
+          }
+        }
+        
+        if (alteracoes.length > 0) {
+          descricaoDetalhada += `Alterações: ${alteracoes.join(', ')}`;
+        }
+      }
+      
+      // Adicionar informações do turno se disponível
+      if (entry.turno_info) {
+        descricaoDetalhada += ` | Turno: ${entry.turno_info}`;
+      }
+      
+      // Adicionar data/hora se disponível
+      if (entry.data_hora) {
+        descricaoDetalhada += ` | ${entry.data_hora}`;
+      }
+      
+      await connection.query(
+        `INSERT INTO logs_sistema (usuario, acao, entidade, registro_id, descricao, ip_address, user_agent)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          entry.usuario,
+          entry.acao,
+          entry.entidade,
+          entry.registro_id || null,
+          descricaoDetalhada || null,
+          entry.ip_address || null,
+          entry.user_agent || null
+        ]
+      );
+    } catch (error) {
+      console.error('Erro ao registrar log detalhado:', error);
     }
   }
 

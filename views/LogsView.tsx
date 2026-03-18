@@ -42,15 +42,36 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
   const [limite] = useState(50);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadLogs();
-      loadStats();
+    console.log('=== VERIFICAÇÃO DE AUTENTICAÇÃO ===');
+    console.log('isAuthenticated:', isAuthenticated);
+    
+    const token = localStorage.getItem('auth_token');
+    console.log('Token no localStorage:', !!token);
+    console.log('Token valor:', token?.substring(0, 20) + '...');
+    
+    if (!isAuthenticated || !token) {
+      console.log('Usuário não autenticado ou sem token - não carregando dados');
+      return;
     }
+    
+    console.log('Usuário autenticado com token válido, carregando dados...');
+    loadLogs();
+    loadStats();
   }, [isAuthenticated, usuario, acao, entidade, dataInicio, dataFim, pagina]);
 
   const loadLogs = async () => {
     try {
+      console.log('=== INICIANDO LOADLOGS ===');
       setLoading(true);
+      
+      const token = localStorage.getItem('auth_token');
+      console.log('Token disponível em loadLogs:', !!token);
+      
+      if (!token) {
+        console.log('SEM TOKEN - não fazendo requisição');
+        setLoading(false); // Importante: resetar loading
+        throw new Error('Token não encontrado');
+      }
       
       const params: any = {
         pagina: pagina.toString(),
@@ -65,56 +86,110 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
 
       // Construir URL com query params
       const queryString = new URLSearchParams(params).toString();
-      const response = await fetch(`/api/logs?${queryString}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      console.log('Fazendo requisição para:', `/api/logs?${queryString}`);
+      console.log('Headers da requisição:', {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       });
+      
+      const response = await fetch(`http://192.168.88.2:3001/api/logs?${queryString}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        mode: 'cors'
+      });
+
+      console.log('Response status loadLogs:', response.status);
+      console.log('Response headers loadLogs:', response.headers);
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.log('Resposta de erro loadLogs (text):', errorText);
+        setLoading(false); // Importante: resetar loading
+        
         if (errorText.includes('<!DOCTYPE')) {
+          console.log('Detectado HTML em loadLogs - rota não encontrada ou servidor erro');
           throw new Error('Servidor indisponível ou rota não encontrada');
         }
         throw new Error(`Erro ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
+      console.log('Dados dos logs carregados:', data);
+      console.log('Setando logs:', data.logs || []);
       setLogs(data.logs || []);
       setTotal(data.total || 0);
+      console.log('Setando total:', data.total || 0);
+      console.log('Resetando loading para false');
+      setLoading(false); // Forçar reset do loading
     } catch (error) {
       console.error('Erro ao carregar logs:', error);
+      console.log('Erro - Resetando loading para false');
+      setLoading(false); // Forçar reset do loading
       onNotify?.('Erro ao carregar logs', 'error');
     } finally {
+      // Garantir que loading seja resetado
       setLoading(false);
     }
   };
 
   const loadStats = async () => {
     try {
+      console.log('=== INICIANDO LOADSTATS ===');
       setLoadingStats(true);
-      const response = await fetch('/api/logs/stats', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      
+      const token = localStorage.getItem('auth_token');
+      console.log('Token disponível em loadStats:', !!token);
+      
+      if (!token) {
+        console.log('SEM TOKEN em loadStats - não fazendo requisição');
+        setLoadingStats(false); // Importante: resetar loading
+        throw new Error('Token não encontrado');
+      }
+      
+      console.log('Headers da requisição loadStats:', {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       });
+      
+      const response = await fetch(`http://192.168.88.2:3001/api/logs/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        mode: 'cors'
+      });
+
+      console.log('Response status loadStats:', response.status);
+      console.log('Response headers loadStats:', response.headers);
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.log('Resposta de erro loadStats (text):', errorText);
+        setLoadingStats(false); // Importante: resetar loading
+        
         if (errorText.includes('<!DOCTYPE')) {
+          console.log('Detectado HTML em loadStats - rota não encontrada ou servidor erro');
           throw new Error('Servidor indisponível ou rota não encontrada');
         }
         throw new Error(`Erro ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
+      console.log('Dados das estatísticas:', data);
       setStats(data);
+      console.log('Resetando loadingStats para false');
+      setLoadingStats(false); // Forçar reset do loading
     } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
+      console.error('Erro completo ao carregar estatísticas:', error);
+      console.log('Erro Stats - Resetando loadingStats para false');
+      setLoadingStats(false); // Forçar reset do loading
       onNotify?.('Erro ao carregar estatísticas', 'error');
     } finally {
+      // Garantir que loadingStats seja resetado
       setLoadingStats(false);
     }
   };
@@ -158,7 +233,13 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Activity className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-gray-500">Faça login para acessar os logs</p>
+          <p className="text-gray-500 mb-4">Faça login para acessar os logs</p>
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+          >
+            Ir para Login
+          </button>
         </div>
       </div>
     );

@@ -1,0 +1,53 @@
+services:
+  # Backend API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sci_api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - DB_HOST=host.docker.internal
+      - DB_NAME=sci_recurso
+      - DB_USER=root
+      - DB_PASSWORD=Gabinete@193
+      - DB_PORT=3306
+      - PORT=3001
+      - VITE_API_URL=http://localhost:3001
+      - NODE_ENV=production
+    networks:
+      - sci_network
+    volumes:
+      - ./logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend (React with Vite)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: sci_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY:-AIzaSyCztE4Sof8hG_loxhqc5d25H6Lwg3MG9tA}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - sci_network
+
+networks:
+  sci_network:
+    driver: bridge

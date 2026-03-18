@@ -38,14 +38,20 @@ router.post('/', validateBody(militarSchema), async (req: any, res: any, next: a
             [matricula, nome_completo, id_posto_grad, nome_guerra, rg || null, id_forca, cpoe ? 'Y' : 'N', mergulhador ? 'Y' : 'N', restricao_medica ? 'Y' : 'N', desc_rest_med || null, id_ubm_number]
         );
         
-        // Registrar log de criação
-        await LogService.logCreate(
-            req.user?.username || 'unknown',
-            'MILITAR',
-            matricula,
-            `Militar ${nome_guerra || matricula} foi criado`,
-            req
-        );
+        // Log detalhado da criação do militar
+        const usuario = req.user?.nome || 'Usuário não identificado';
+        
+        await LogService.logDetalhado({
+            usuario: usuario,
+            acao: 'CREATE',
+            entidade: 'militar',
+            registro_id: matricula,
+            descricao: `Criado militar ${nome_guerra || matricula} - ${nome_completo}`,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent'),
+            dados_novos: { matricula, nome_completo, nome_guerra, id_posto_grad, id_ubm },
+            data_hora: new Date().toLocaleString('pt-BR')
+        });
         
         res.json({ matricula, ...req.body });
     } catch (err) { next(err); }
@@ -60,19 +66,34 @@ router.put('/:matricula', async (req: any, res: any, next: any) => {
         // Converte id_ubm para número se for string
         const id_ubm_number = id_ubm ? (typeof id_ubm === 'string' ? id_ubm : String(id_ubm)) : null;
         
+        // Buscar dados antigos para comparação
+        const [dadosAntigosResult] = await getConnection().query(
+            'SELECT nome_completo, id_posto_grad, nome_guerra, rg, id_forca, cpoe, mergulhador, restricao_medica, desc_rest_med, id_ubm FROM militares WHERE matricula = ?',
+            [matricula]
+        );
+        const dadosAntigos = (dadosAntigosResult as any)[0];
+        
         await getConnection().query(
             'UPDATE militares SET nome_completo = ?, id_posto_grad = ?, nome_guerra = ?, rg = ?, id_forca = ?, cpoe = ?, mergulhador = ?, restricao_medica = ?, desc_rest_med = ?, id_ubm = ? WHERE matricula = ?',
             [nome_completo, id_posto_grad, nome_guerra, rg || null, id_forca, cpoe ? 'Y' : 'N', mergulhador ? 'Y' : 'N', restricao_medica ? 'Y' : 'N', desc_rest_med || null, id_ubm_number, matricula]
         );
         
-        // Registrar log de atualização
-        await LogService.logUpdate(
-            req.user?.username || 'unknown',
-            'MILITAR',
-            matricula,
-            `Militar ${nome_guerra || matricula} foi atualizado`,
-            req
-        );
+        // Log detalhado da atualização
+        const usuario = req.user?.nome || 'Usuário não identificado';
+        const dadosNovos = { nome_completo, id_posto_grad, nome_guerra, rg, id_forca, cpoe, mergulhador, restricao_medica, desc_rest_med, id_ubm };
+        
+        await LogService.logDetalhado({
+            usuario: usuario,
+            acao: 'UPDATE',
+            entidade: 'militar',
+            registro_id: matricula,
+            descricao: `Atualizado militar ${nome_guerra || matricula} - ${nome_completo}`,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent'),
+            dados_antigos: dadosAntigos,
+            dados_novos: dadosNovos,
+            data_hora: new Date().toLocaleString('pt-BR')
+        });
         
         res.json({ matricula, ...req.body });
     } catch (err) { next(err); }
@@ -85,21 +106,27 @@ router.delete('/:matricula', async (req: any, res: any, next: any) => {
         
         // Buscar informações do militar antes de excluir para o log
         const [militarInfo] = await getConnection().query(
-            'SELECT nome_guerra FROM militares WHERE matricula = ?',
+            'SELECT * FROM militares WHERE matricula = ?',
             [matricula]
         );
         const militar = (militarInfo as any)[0];
         
         await getConnection().query('DELETE FROM militares WHERE matricula = ?', [matricula]);
         
-        // Registrar log de exclusão
-        await LogService.logDelete(
-            req.user?.username || 'unknown',
-            'MILITAR',
-            matricula,
-            `Militar ${militar?.nome_guerra || matricula} foi excluído`,
-            req
-        );
+        // Log detalhado da exclusão
+        const usuario = req.user?.nome || 'Usuário não identificado';
+        
+        await LogService.logDetalhado({
+            usuario: usuario,
+            acao: 'DELETE',
+            entidade: 'militar',
+            registro_id: matricula,
+            descricao: `Excluído militar ${militar?.nome_guerra || matricula} - ${militar?.nome_completo || ''}`,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent'),
+            dados_antigos: militar,
+            data_hora: new Date().toLocaleString('pt-BR')
+        });
         
         res.json({ message: 'Militar deletado com sucesso' });
     } catch (err) { next(err); }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getConnection } from '../db';
 import { authenticateToken } from '../auth';
 import { validateBody, turnoSchema, chamadaMilitarSchema, chamadaMilitarUpdateSchema } from '../middleware/validate';
+import { LogService } from '../services/logService';
 
 const router = Router();
 
@@ -24,6 +25,25 @@ router.post('/sp/criar-turno', validateBody(turnoSchema), async (req: any, res: 
     try {
         const { data, periodo } = req.body;
         const result = await getConnection().query('CALL sp_criar_turno(?, ?)', [data, periodo]);
+        
+        // Log detalhado da criação do turno
+        const usuario = req.user?.nome || 'Usuário não identificado';
+        const dataFormatada = new Date(data).toLocaleDateString('pt-BR');
+        const turnoInfo = `Turno do dia ${dataFormatada}: ${periodo}`;
+        
+        await LogService.logDetalhado({
+            usuario: usuario,
+            acao: 'CREATE',
+            entidade: 'turno',
+            registro_id: result[0][0]?.id_turno?.toString(),
+            descricao: `Criado turno ${turnoInfo}`,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent'),
+            dados_novos: { data, periodo },
+            turno_info: turnoInfo,
+            data_hora: new Date().toLocaleString('pt-BR')
+        });
+        
         res.json(result[0][0]);
     } catch (err) { next(err); }
 });
