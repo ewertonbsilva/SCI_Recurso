@@ -9,6 +9,7 @@ import TurnoDetalhe from './views/TurnoDetalhe';
 import Chamadas from './views/Chamadas';
 import ChamadaCivilView from './views/ChamadaCivil';
 import GestaoEquipes from './views/GestaoEquipes';
+import Relatorios from './views/Relatorios';
 import Login from './views/Login';
 import Configuracoes from './views/Configuracoes';
 import Toast, { ToastType } from './components/Toast';
@@ -86,6 +87,8 @@ const AppContent: React.FC = () => {
             onNotify={showToast}
           />
         ) : (user?.role === UserRole.OPERADOR ? <Monitoramento /> : <Dashboard />);
+      case 'relatorios':
+        return user?.role === UserRole.ADMIN || user?.role === UserRole.OPERADOR ? <Relatorios onNotify={showToast} /> : <Monitoramento />;
       case 'chamada_mil': return <Chamadas onNotify={showToast} />;
       case 'chamada_civ': return <ChamadaCivilView onNotify={showToast} />;
       case 'usuarios':

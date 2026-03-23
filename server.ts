@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+// Configuração global de fuso horário (Rio Branco, Acre: -05:00)
+process.env.TZ = 'America/Rio_Branco';
 import { initializeDatabase } from './db';
 import { errorHandler } from './middleware/errorHandler';
 import { loggingMiddleware } from './middleware/logging';
@@ -14,6 +17,7 @@ import dashboardRouter from './routes/dashboard.routes';
 import adminRouter from './routes/admin.routes';
 import ubmRouter from './routes/ubm.routes';
 import logsRouter from './routes/logs.routes';
+import relatoriosRouter from './routes/relatorios';
 
 // Load environment variables
 dotenv.config();
@@ -42,6 +46,7 @@ app.use('/api/civis', divisRouter);
 app.use('/api/turnos', turnosRouter);
 app.use('/api/ubms', ubmRouter);
 app.use('/api/logs', logsRouter);
+app.use('/api/relatorios', relatoriosRouter);
 app.use('/api', turnosRouter);      // turnos, chamadas, equipes (paths já incluem /turnos etc.)
 app.use('/api', dashboardRouter);   // dashboard, vw/*, sp/*, database-objects
 app.use('/api', adminRouter);       // users, atestados, logs, debug

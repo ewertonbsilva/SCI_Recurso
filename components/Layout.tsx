@@ -18,7 +18,8 @@ import {
   FileText,
   Palette,
   Database,
-  Check
+  Check,
+  BarChart3
 } from 'lucide-react';
 import { UserRole, User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -76,6 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
     { id: 'equipes', label: 'Gestão de Equipes', icon: <Truck size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
     { id: 'cadastro', label: 'Cadastros Base', icon: <Users size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
     { id: 'turnos', label: 'Gestão de Turnos', icon: <Clock size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
+    { id: 'relatorios', label: 'Relatórios', icon: <BarChart3 size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
     { id: 'usuarios', label: 'Configurações', icon: <Settings size={20} />, roles: [UserRole.ADMIN] },
   ];
 

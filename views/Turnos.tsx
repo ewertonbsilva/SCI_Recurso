@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Trash2, ChevronRight, Clock, Filter, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Plus, Calendar, Trash2, ChevronRight, Clock, Filter, ChevronLeft, ChevronRight as ChevronRightIcon, Users } from 'lucide-react';
 import { apiService } from '../apiService';
-import { Turno, Periodo } from '../types';
+import { Turno, Periodo, StatusPresenca } from '../types';
 import { ToastType } from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
@@ -31,6 +31,8 @@ interface TurnosProps {
 const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [apiTurnos, setApiTurnos] = useState<Turno[]>([]);
+  const [chamadaMilitar, setChamadaMilitar] = useState<any[]>([]);
+  const [chamadaCivil, setChamadaCivil] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [themeColors, setThemeColors] = useState(getThemeColors());
 
@@ -108,6 +110,29 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
       setLoading(true);
       const turnos = await apiService.getTurnos();
       setApiTurnos(turnos);
+      
+      // Carregar chamadas para cada turno
+      const chamadasPromises = turnos.map(async (turno) => {
+        try {
+          const [militarData, civilData] = await Promise.all([
+            apiService.getChamadaMilitar(turno.id_turno),
+            apiService.getChamadaCivil(turno.id_turno)
+          ]);
+          return { idTurno: turno.id_turno, militarData, civilData };
+        } catch (error) {
+          console.warn(`Erro ao carregar chamadas do turno ${turno.id_turno}:`, error);
+          return { idTurno: turno.id_turno, militarData: [], civilData: [] };
+        }
+      });
+      
+      const chamadasResults = await Promise.all(chamadasPromises);
+      
+      // Agrupar todos os dados de chamada
+      const allMilitarData = chamadasResults.flatMap(result => result.militarData);
+      const allCivilData = chamadasResults.flatMap(result => result.civilData);
+      
+      setChamadaMilitar(allMilitarData);
+      setChamadaCivil(allCivilData);
     } catch (error) {
       console.error('Erro ao carregar turnos da API:', error);
       onNotify?.('Erro ao carregar turnos do banco de dados', 'error');
@@ -202,6 +227,18 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const getTotalPresentes = (idTurno: string) => {
+    const militaresPresentes = chamadaMilitar.filter(cm => 
+      cm.id_turno === idTurno && cm.presenca === StatusPresenca.PRESENTE
+    ).length;
+    
+    const civisPresentes = chamadaCivil.filter(cc => 
+      cc.id_turno === idTurno
+    ).reduce((total, cc) => total + 1 + (cc.quant_civil || 0), 0);
+    
+    return militaresPresentes + civisPresentes;
   };
 
   const clearFilters = () => {
@@ -327,6 +364,12 @@ const Turnos: React.FC<TurnosProps> = ({ onNotify, onSelectTurno }) => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <Users size={12} className="text-slate-400" />
+                    <span className="text-[10px] font-black text-slate-600 dark:text-slate-300">
+                      {getTotalPresentes(t.id_turno)}
+                    </span>
+                  </div>
                   <button onClick={(e) => removeTurno(e, t.id_turno)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
                     <Trash2 size={16} />
                   </button>

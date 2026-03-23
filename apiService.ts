@@ -29,7 +29,19 @@ class ApiService {
           localStorage.removeItem('auth_user');
           window.location.href = '/login';
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        
+        // Tentar obter mensagem de erro detalhada
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.message || errorData.error) {
+            errorMessage = errorData.message || errorData.error;
+          }
+        } catch (e) {
+          // Se não conseguir parsear o JSON, mantém a mensagem padrão
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -410,6 +422,47 @@ class ApiService {
   // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.request<{ status: string; timestamp: string }>('/api/health');
+  }
+
+  // Relatórios
+  async getRelatorioPessoalMilitar(params: { matricula: string; dataInicio?: string; dataFim?: string }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('matricula', params.matricula);
+    if (params.dataInicio) queryParams.append('dataInicio', params.dataInicio);
+    if (params.dataFim) queryParams.append('dataFim', params.dataFim);
+    
+    return this.request<any[]>(`/api/relatorios/pessoal/militar?${queryParams.toString()}`);
+  }
+
+  async getRelatorioPessoalCivil(params: { idCivil: string; dataInicio?: string; dataFim?: string }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('idCivil', params.idCivil);
+    if (params.dataInicio) queryParams.append('dataInicio', params.dataInicio);
+    if (params.dataFim) queryParams.append('dataFim', params.dataFim);
+    
+    return this.request<any[]>(`/api/relatorios/pessoal/civil?${queryParams.toString()}`);
+  }
+
+  async getRelatorioTurno(idTurno: string): Promise<any[]> {
+    return this.request<any[]>(`/api/relatorios/turno/${idTurno}`);
+  }
+
+  async getRelatorioUnidadeMilitar(params: { ubm: string; dataInicio?: string; dataFim?: string }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('ubm', params.ubm);
+    if (params.dataInicio) queryParams.append('dataInicio', params.dataInicio);
+    if (params.dataFim) queryParams.append('dataFim', params.dataFim);
+    
+    return this.request<any[]>(`/api/relatorios/unidade/militar?${queryParams.toString()}`);
+  }
+
+  async getRelatorioUnidadeCivil(params: { orgao: string; dataInicio?: string; dataFim?: string }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('orgao', params.orgao);
+    if (params.dataInicio) queryParams.append('dataInicio', params.dataInicio);
+    if (params.dataFim) queryParams.append('dataFim', params.dataFim);
+    
+    return this.request<any[]>(`/api/relatorios/unidade/civil?${queryParams.toString()}`);
   }
 }
 

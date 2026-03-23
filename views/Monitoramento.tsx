@@ -63,18 +63,18 @@ const EquipeCard: React.FC<EquipeCardProps> = ({ equipe }) => {
       )}
 
       <div className="flex items-center gap-2 mb-4">
-        <h3 className="text-xl font-black text-blue-600 dark:text-blue-400 uppercase truncate pr-20 tracking-tighter">{equipe.nome}</h3>
+        <h3 className="text-xl font-black text-blue-600 dark:text-blue-400 uppercase pr-20 tracking-tighter" style={{wordBreak: 'break-word', hyphens: 'auto'}}>{equipe.nome}</h3>
       </div>
 
       {/* Informações visíveis por padrão */}
       <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
         <div className="flex items-center gap-2">
           <ShieldCheck size={16} className="text-blue-500 shrink-0" />
-          <p className="truncate"><strong>Chefe:</strong> {equipe.chefe || <span className="text-red-400 italic">Não vinculado</span>}</p>
+          <p style={{wordBreak: 'break-word', hyphens: 'auto'}}><strong>Chefe:</strong> {equipe.chefe || <span className="text-red-400 italic">Não vinculado</span>}</p>
         </div>
         <div className="flex items-center gap-2">
           <User size={16} className="text-slate-400 shrink-0" />
-          <p className="truncate"><strong>Mot.:</strong> {equipe.motorista}</p>
+          <p style={{wordBreak: 'break-word', hyphens: 'auto'}}><strong>Mot.:</strong> {equipe.motorista}</p>
         </div>
         <div className="flex items-center gap-2">
           <Users size={16} className="text-slate-400 shrink-0" />
@@ -356,7 +356,8 @@ const Monitoramento: React.FC = () => {
                     const dateStr = dateObj.toLocaleDateString('pt-BR', {
                       day: '2-digit',
                       month: '2-digit',
-                      year: 'numeric'
+                      year: 'numeric',
+                      timeZone: 'UTC'
                     });
                     return (
                       <option key={date} value={date} className="bg-slate-800 text-white">

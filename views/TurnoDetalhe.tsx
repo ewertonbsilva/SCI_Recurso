@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Download, Trash2, UserPlus, ListChecks, Eraser, Shield, UserCircle, Check, Ship, Waves, ShieldAlert, ChevronLeft, ChevronRightIcon, CheckCircle, XCircle, ArrowRightLeft, FileText, Settings, Flame } from 'lucide-react';
+import { ArrowLeft, Download, Trash2, UserPlus, ListChecks, Eraser, Shield, UserCircle, Check, Ship, Waves, ShieldAlert, ChevronLeft, ChevronRightIcon, CheckCircle, XCircle, ArrowRightLeft, FileText, Settings, Flame, Plus, Users } from 'lucide-react';
 import { apiService } from '../apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { FuncaoMilitar, StatusPresenca, StatusEquipe, CadastroMilitar, CadastroCivil } from '../types';
 import type { ChamadaMilitar, ChamadaCivil, AtestadoMedico, Turno } from '../types';
 import { ToastType } from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import CivilModal from '../components/CivilModal';
 
 interface TurnoDetalheProps {
   id_turno: string;
@@ -60,6 +61,13 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
   const [activeSubTab, setActiveSubTab] = useState<'militar' | 'civil' | 'chamada'>('militar');
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingSelection, setPendingSelection] = useState<string[]>([]);
+  const [isCivilModalOpen, setIsCivilModalOpen] = useState(false);
+  const [editingCivil, setEditingCivil] = useState<CadastroCivil | null>(null);
+  const [isFuncaoModalOpen, setIsFuncaoModalOpen] = useState(false);
+  const [selectedFuncao, setSelectedFuncao] = useState<FuncaoMilitar>(FuncaoMilitar.COMBATENTE);
+  const [escalaSelection, setEscalaSelection] = useState<string[]>([]);
+  const [isFuncaoBatchModalOpen, setIsFuncaoBatchModalOpen] = useState(false);
+  const [batchFuncao, setBatchFuncao] = useState<FuncaoMilitar>(FuncaoMilitar.COMBATENTE);
   
   // Estados para paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,6 +116,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
         apiService.getCivis(),
         apiService.getAtestados()
       ]);
+      
       setTurnos(turnosData);
       setChamadaMilitar(chamadaMilData);
       setChamadaCivil(chamadaCivData);
@@ -138,15 +147,20 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
 
   const addMilitar = async () => {
     if (pendingSelection.length === 0) return;
+    // Abrir modal para escolher a função
+    setIsFuncaoModalOpen(true);
+  };
+
+  const confirmAddMilitar = async () => {
+    if (pendingSelection.length === 0) return;
     try {
       const newEntries = pendingSelection.map(matricula => ({
         id_chamada_militar: crypto.randomUUID(),
         id_turno,
         matricula,
-        funcao: FuncaoMilitar.COMBATENTE,
+        funcao: selectedFuncao,
         presenca: StatusPresenca.AUSENTE
       }));
-      
       
       // Enviar cada militar individualmente
       for (const entry of newEntries) {
@@ -154,12 +168,14 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
       }
       
       setChamadaMilitar(prev => [...prev, ...newEntries]);
-      onNotify?.(`${newEntries.length} militar(es) adicionado(s).`, "success");
-    } catch (error) {
+      onNotify?.(`${newEntries.length} militar(es) adicionado(s) como ${selectedFuncao}.`, "success");
+      setPendingSelection([]);
+      setIsFuncaoModalOpen(false);
+    } catch (error: any) {
       console.error('Erro ao adicionar militar:', error);
-      onNotify?.('Erro ao adicionar militar no banco de dados', 'error');
+      const errorMessage = error.message || 'Erro ao adicionar militar no banco de dados';
+      onNotify?.(errorMessage, "error");
     }
-    setPendingSelection([]);
   };
 
   const addCivil = async () => {
@@ -250,18 +266,18 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
 
   const updateChamadaMil = async (id: string, updates: Partial<ChamadaMilitar>) => {
     try {
-      // Encontrar o registro atual para obter o id_turno e função atual
+      // Encontrar o registro atual para obter os dados necessários
       const currentChamada = chamadaMilitar.find(cm => cm.id_chamada_militar === id);
       if (!currentChamada) {
         throw new Error('Chamada militar não encontrada');
       }
       
-      // Incluir o id_turno, matricula e função atual nas atualizações
-      const updateData = {
+      // Preparar dados para atualização - apenas os campos necessários
+      const updateData: Partial<ChamadaMilitar> = {
         id_turno: currentChamada.id_turno,
         matricula: currentChamada.matricula,
-        funcao: currentChamada.funcao, // Manter função atual
-        ...updates // Aplicar apenas as atualizações enviadas
+        funcao: updates.funcao !== undefined ? updates.funcao : currentChamada.funcao,
+        presenca: updates.presenca !== undefined ? updates.presenca : currentChamada.presenca
       };
       
       await apiService.updateChamadaMilitar(id, updateData);
@@ -407,9 +423,143 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
     setCurrentPage(page);
   };
 
+  const getMilitaresCount = () => {
+    const sci = chamadaMil.filter(cm => cm.funcao === FuncaoMilitar.SCI).length;
+    const combatentes = chamadaMil.filter(cm => cm.funcao === FuncaoMilitar.COMBATENTE).length;
+    return { sci, combatentes };
+  };
+
+  const { sci, combatentes } = getMilitaresCount();
+
+  const getCivisCount = () => {
+    const motoristas = chamadaCiv.filter(cc => {
+      const civil = civis.find(c => c.id_civil === cc.id_civil);
+      return civil?.motorista;
+    }).length;
+    
+    const naoMotoristas = chamadaCiv.filter(cc => {
+      const civil = civis.find(c => c.id_civil === cc.id_civil);
+      return !civil?.motorista;
+    }).length;
+    
+    const auxiliaresMotoristas = chamadaCiv.filter(cc => {
+      const civil = civis.find(c => c.id_civil === cc.id_civil);
+      return civil?.motorista;
+    }).reduce((total, cc) => total + (cc.quant_civil || 0), 0);
+    
+    const auxiliaresNaoMotoristas = chamadaCiv.filter(cc => {
+      const civil = civis.find(c => c.id_civil === cc.id_civil);
+      return !civil?.motorista;
+    }).reduce((total, cc) => total + (cc.quant_civil || 0), 0);
+    
+    const auxiliaresTotais = auxiliaresMotoristas + auxiliaresNaoMotoristas;
+    
+    return { motoristas, naoMotoristas, auxiliaresMotoristas, auxiliaresNaoMotoristas, auxiliaresTotais };
+  };
+
+  const { motoristas, naoMotoristas, auxiliaresMotoristas, auxiliaresNaoMotoristas, auxiliaresTotais } = getCivisCount();
+
+  // Funções para gerenciar seleção múltipla na escala
+  const toggleEscalaSelection = (id: string) => {
+    setEscalaSelection(prev => 
+      prev.includes(id) 
+        ? prev.filter(selectedId => selectedId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const selectAllEscala = () => {
+    if (activeSubTab === 'militar') {
+      const allIds = paginatedData.map((cm: any) => cm.id_chamada_militar);
+      setEscalaSelection(allIds);
+    } else if (activeSubTab === 'civil') {
+      const allIds = paginatedData.map((cc: any) => cc.id_chamada_civil);
+      setEscalaSelection(allIds);
+    }
+  };
+
+  const clearEscalaSelection = () => {
+    setEscalaSelection([]);
+  };
+
+  const removeSelectedFromEscala = async () => {
+    if (escalaSelection.length === 0) return;
+    
+    setModalConfig({
+      isOpen: true,
+      title: `Remover ${escalaSelection.length} registro(s)`,
+      message: `Tem certeza que deseja remover ${escalaSelection.length} registro(s) da escala?`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          if (activeSubTab === 'militar') {
+            for (const id of escalaSelection) {
+              await apiService.deleteChamadaMilitar(id);
+            }
+            setChamadaMilitar(prev => prev.filter(cm => !escalaSelection.includes(cm.id_chamada_militar)));
+          } else if (activeSubTab === 'civil') {
+            for (const id of escalaSelection) {
+              await apiService.deleteChamadaCivil(id);
+            }
+            setChamadaCivil(prev => prev.filter(cc => !escalaSelection.includes(cc.id_chamada_civil)));
+          }
+          setEscalaSelection([]);
+          onNotify?.(`${escalaSelection.length} registro(s) removido(s) com sucesso.`, "success");
+        } catch (error) {
+          console.error('Erro ao remover registros:', error);
+          onNotify?.('Erro ao remover registros', 'error');
+        }
+      }
+    });
+  };
+
+  const updateFuncaoBatch = async () => {
+    if (escalaSelection.length === 0 || activeSubTab !== 'militar') return;
+    
+    try {
+      for (const id of escalaSelection) {
+        await updateChamadaMil(id, { funcao: batchFuncao });
+      }
+      setEscalaSelection([]);
+      onNotify?.(`Função atualizada para ${batchFuncao} em ${escalaSelection.length} militar(es) com sucesso.`, "success");
+      setIsFuncaoBatchModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao atualizar função em lote:', error);
+      onNotify?.('Erro ao atualizar função', 'error');
+    }
+  };
+
   const handleSelectAll = () => {
     const allAvailableIds = activeSubTab === 'militar' ? filteredMilitares.map(m => m.matricula) : filteredCivis.map(c => c.id_civil);
     setPendingSelection(allAvailableIds);
+  };
+
+  const handleSaveCivil = async (civil: CadastroCivil) => {
+    try {
+      if (editingCivil) {
+        await apiService.updateCivil(editingCivil.id_civil, civil);
+        onNotify?.("Civil atualizado com sucesso!", "success");
+      } else {
+        await apiService.createCivil(civil);
+        onNotify?.("Civil cadastrado com sucesso!", "success");
+      }
+      
+      // Recarregar lista de civis
+      const civisData = await apiService.getCivis();
+      setCivis(civisData);
+      
+      // Fechar modal e limpar estado
+      setIsCivilModalOpen(false);
+      setEditingCivil(null);
+    } catch (error) {
+      console.error('Erro ao salvar civil:', error);
+      onNotify?.("Erro ao salvar civil.", "error");
+    }
+  };
+
+  const openNewCivilModal = () => {
+    setEditingCivil(null);
+    setIsCivilModalOpen(true);
   };
 
   const exportCSV = () => {
@@ -440,9 +590,9 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
           </div>
         </div>
         <div className="flex bg-slate-50 dark:bg-slate-800 p-1.5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-inner">
-          <button onClick={() => { setActiveSubTab('militar'); setPendingSelection([]); }} className={`px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${activeSubTab === 'militar' ? 'bg-white dark:bg-slate-700 text-primary shadow-lg' : 'text-slate-400'}`}><Shield size={14} /> Militar</button>
-          <button onClick={() => { setActiveSubTab('civil'); setPendingSelection([]); }} className={`px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${activeSubTab === 'civil' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-lg' : 'text-slate-400'}`}><UserCircle size={14} /> Civil</button>
-          <button onClick={() => { setActiveSubTab('chamada'); setPendingSelection([]); }} className={`px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${activeSubTab === 'chamada' ? 'bg-white dark:bg-slate-700 text-orange-600 shadow-lg' : 'text-slate-400'}`}><ListChecks size={14} /> Chamada</button>
+          <button onClick={() => { setActiveSubTab('militar'); setPendingSelection([]); setEscalaSelection([]); }} className={`px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${activeSubTab === 'militar' ? 'bg-white dark:bg-slate-700 text-primary shadow-lg' : 'text-slate-400'}`}><Shield size={14} /> Militar</button>
+          <button onClick={() => { setActiveSubTab('civil'); setPendingSelection([]); setEscalaSelection([]); }} className={`px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${activeSubTab === 'civil' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-lg' : 'text-slate-400'}`}><UserCircle size={14} /> Civil</button>
+          <button onClick={() => { setActiveSubTab('chamada'); setPendingSelection([]); setEscalaSelection([]); }} className={`px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${activeSubTab === 'chamada' ? 'bg-white dark:bg-slate-700 text-orange-600 shadow-lg' : 'text-slate-400'}`}><ListChecks size={14} /> Chamada</button>
         </div>
       </div>
 
@@ -681,7 +831,11 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
               </h3>
               <input placeholder="Pesquisar disponível..." className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl text-xs font-bold outline-none mb-4" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               <div className="flex gap-2 mb-4">
-                <button onClick={handleSelectAll} className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 dark:bg-slate-800 text-[9px] font-black text-slate-500 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all uppercase tracking-widest"><ListChecks size={14} /> Tudo</button>
+                {activeSubTab === 'militar' ? (
+                  <button onClick={handleSelectAll} className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 dark:bg-slate-800 text-[9px] font-black text-slate-500 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all uppercase tracking-widest"><ListChecks size={14} /> Tudo</button>
+                ) : (
+                  <button onClick={openNewCivilModal} className="flex-1 flex items-center justify-center gap-2 py-2 bg-blue-600 text-white text-[9px] font-black rounded-xl hover:bg-blue-700 transition-all uppercase tracking-widest"><Plus size={14} /> Novo Cadastro</button>
+                )}
                 <button onClick={() => setPendingSelection([])} className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 dark:bg-slate-800 text-[9px] font-black text-slate-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all uppercase tracking-widest"><Eraser size={14} /> Limpar</button>
               </div>
               <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
@@ -707,12 +861,62 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                     {activeSubTab === 'militar' && (
                       <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-500">
                         <span className="flex items-center gap-1">
-                          <Settings size={14} className="text-purple-600" /> SCI
+                          <Settings size={14} className="text-purple-600" /> SCI: {sci}
                         </span>
                         <span className="flex items-center gap-1">
-                          <Flame size={14} className="text-orange-600" /> Combatente
+                          <Flame size={14} className="text-orange-600" /> Combatentes: {combatentes}
                         </span>
                       </div>
+                    )}
+                    {activeSubTab === 'civil' && (
+                      <div className="flex flex-wrap items-center gap-4 mt-2 text-[10px] text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Ship size={14} className="text-blue-600" /> Motoristas: {motoristas}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <UserCircle size={14} className="text-orange-600" /> Não Motoristas: {naoMotoristas}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users size={14} className="text-blue-400" /> Aux. Motoristas: {auxiliaresMotoristas}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users size={14} className="text-orange-400" /> Aux. Não Motoristas: {auxiliaresNaoMotoristas}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={selectAllEscala}
+                      className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                      title="Selecionar todos"
+                    >
+                      <ListChecks size={14} />
+                    </button>
+                    <button
+                      onClick={clearEscalaSelection}
+                      className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                      title="Limpar seleção"
+                    >
+                      <Eraser size={14} />
+                    </button>
+                    {escalaSelection.length > 0 && activeSubTab === 'militar' && (
+                      <button
+                        onClick={() => setIsFuncaoBatchModalOpen(true)}
+                        className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-all"
+                        title={`Alterar função de ${escalaSelection.length} militar(es)`}
+                      >
+                        <Settings size={14} />
+                      </button>
+                    )}
+                    {escalaSelection.length > 0 && (
+                      <button
+                        onClick={removeSelectedFromEscala}
+                        className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-all"
+                        title={`Remover ${escalaSelection.length} selecionado(s)`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     )}
                   </div>
                   <input 
@@ -721,9 +925,6 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                     value={escalaSearchTerm} 
                     onChange={e => setEscalaSearchTerm(e.target.value)} 
                   />
-                  <button onClick={exportCSV} className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 hover:text-primary transition-colors">
-                    <Download size={18} />
-                  </button>
                 </div>
               </div>
               <div className="p-4">
@@ -732,11 +933,23 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                     paginatedData.map(cm => {
                       const m = militares.find(mil => mil.matricula === cm.matricula);
                       return (
-                        <div key={cm.id_chamada_militar} className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
+                        <div key={cm.id_chamada_militar} className={`p-3 bg-white dark:bg-slate-900 rounded-2xl border transition-colors group ${
+                          escalaSelection.includes(cm.id_chamada_militar)
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30'
+                        } shadow-sm`}>
                           <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase leading-tight">{m?.nome_posto_grad} {m?.nome_guerra}</h4>
-                              <p className="text-[10px] font-bold text-slate-400 mt-1">{cm.matricula}</p>
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={escalaSelection.includes(cm.id_chamada_militar)}
+                                onChange={() => toggleEscalaSelection(cm.id_chamada_militar)}
+                                className="w-4 h-4 text-blue-600 bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500"
+                              />
+                              <div>
+                                <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase leading-tight">{m?.nome_posto_grad} {m?.nome_guerra}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 mt-1">{cm.matricula}</p>
+                              </div>
                             </div>
                             <div className="flex justify-center gap-2">
                               {m?.cpoe && <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-lg" title="CPOE"><Ship size={14} /></div>}
@@ -772,7 +985,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                                 </button>
                               </div>
                               <span className="text-[9px] font-bold uppercase text-slate-400">Status</span>
-                              <div className={`border-none px-3 py-1.5 rounded-full text-[10px] font-black uppercase outline-none ${getStatusConfig(cm.presenca || StatusPresenca.AUSENTE).bg}`}>
+                              <div className={`border-none px-3 py-1.5 rounded-full text-[10px] font-black uppercase outline-none cursor-default ${getStatusConfig(cm.presenca || StatusPresenca.AUSENTE).bg}`}>
                                 {getStatusConfig(cm.presenca || StatusPresenca.AUSENTE).icon} {getStatusConfig(cm.presenca || StatusPresenca.AUSENTE).label}
                               </div>
                             </div>
@@ -785,11 +998,23 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                     paginatedData.map(cc => {
                       const c = civis.find(civ => civ.id_civil === cc.id_civil);
                       return (
-                        <div key={cc.id_chamada_civil} className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
+                        <div key={cc.id_chamada_civil} className={`p-3 bg-white dark:bg-slate-900 rounded-2xl border transition-colors group ${
+                          escalaSelection.includes(cc.id_chamada_civil)
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30'
+                        } shadow-sm`}>
                           <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase leading-tight">{c?.nome_completo}</h4>
-                              <p className="text-[10px] font-bold text-slate-400 mt-1">{c?.nome_orgao}</p>
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={escalaSelection.includes(cc.id_chamada_civil)}
+                                onChange={() => toggleEscalaSelection(cc.id_chamada_civil)}
+                                className="w-4 h-4 text-blue-600 bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500"
+                              />
+                              <div>
+                                <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase leading-tight">{c?.nome_completo}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 mt-1">{c?.nome_orgao}</p>
+                              </div>
                             </div>
                             <div className="flex justify-center gap-2">
                               {/* Espaço reservado para alinhamento com ícones dos militares */}
@@ -798,7 +1023,7 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
                           
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold uppercase text-slate-400">Qtd. Efetivo</span>
+                              <span className="text-[9px] font-bold uppercase text-slate-400">Auxiliares</span>
                               <input 
                                 type="number" 
                                 min="0" 
@@ -905,6 +1130,170 @@ const TurnoDetalhe: React.FC<TurnoDetalheProps> = ({ id_turno, onBack, onNotify 
           </div>
         </div>
       )}
+      
+      {/* Modal de Escolha de Função Militar */}
+      {isFuncaoModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8">
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">
+                Função do <span className="text-primary">Militar</span>
+              </h3>
+              <p className="text-sm text-slate-400">
+                {pendingSelection.length} militar(es) selecionado(s)
+              </p>
+            </div>
+            
+            <div className="space-y-4 mb-8">
+              <button
+                onClick={() => setSelectedFuncao(FuncaoMilitar.COMBATENTE)}
+                className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${
+                  selectedFuncao === FuncaoMilitar.COMBATENTE
+                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-orange-300'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  selectedFuncao === FuncaoMilitar.COMBATENTE
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-orange-100 dark:bg-orange-900/40 text-orange-600'
+                }`}>
+                  <Flame size={20} />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-black text-slate-900 dark:text-white">COMBATENTE</h4>
+                  <p className="text-xs text-slate-400">Função operacional de campo</p>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setSelectedFuncao(FuncaoMilitar.SCI)}
+                className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${
+                  selectedFuncao === FuncaoMilitar.SCI
+                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-purple-300'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  selectedFuncao === FuncaoMilitar.SCI
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600'
+                }`}>
+                  <Settings size={20} />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-black text-slate-900 dark:text-white">SCI</h4>
+                  <p className="text-xs text-slate-400">Sistema de Comando e Informação</p>
+                </div>
+              </button>
+            </div>
+            
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setIsFuncaoModalOpen(false);
+                  setSelectedFuncao(FuncaoMilitar.COMBATENTE);
+                }}
+                className="flex-1 px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmAddMilitar}
+                className="flex-1 px-6 py-4 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all shadow-lg"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Edição de Função em Lote */}
+      {isFuncaoBatchModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8">
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">
+                Alterar <span className="text-primary">Função</span>
+              </h3>
+              <p className="text-sm text-slate-400">
+                {escalaSelection.length} militar(es) selecionado(s)
+              </p>
+            </div>
+            
+            <div className="space-y-4 mb-8">
+              <button
+                onClick={() => setBatchFuncao(FuncaoMilitar.COMBATENTE)}
+                className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${
+                  batchFuncao === FuncaoMilitar.COMBATENTE
+                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-orange-300'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  batchFuncao === FuncaoMilitar.COMBATENTE
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-orange-100 dark:bg-orange-900/40 text-orange-600'
+                }`}>
+                  <Flame size={20} />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-black text-slate-900 dark:text-white text-lg">COMBATENTE</h4>
+                  <p className="text-xs text-slate-400">Função operacional de campo</p>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setBatchFuncao(FuncaoMilitar.SCI)}
+                className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${
+                  batchFuncao === FuncaoMilitar.SCI
+                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-purple-300'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  batchFuncao === FuncaoMilitar.SCI
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600'
+                }`}>
+                  <Settings size={20} />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-black text-slate-900 dark:text-white text-lg">SCI</h4>
+                  <p className="text-xs text-slate-400">Sistema de Comando e Informação</p>
+                </div>
+              </button>
+            </div>
+            
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setIsFuncaoBatchModalOpen(false);
+                  setBatchFuncao(FuncaoMilitar.COMBATENTE);
+                }}
+                className="flex-1 px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={updateFuncaoBatch}
+                className="flex-1 px-6 py-4 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all shadow-xl"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Cadastro de Civil */}
+      <CivilModal
+        isOpen={isCivilModalOpen}
+        onClose={() => setIsCivilModalOpen(false)}
+        onSave={handleSaveCivil}
+        editingCivil={editingCivil}
+      />
       
       {/* Modal de Confirmação */}
       <ConfirmModal

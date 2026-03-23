@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+
+// Configuração global de fuso horário (Rio Branco, Acre: -05:00)
+process.env.TZ = 'America/Rio_Branco';
 import dotenv from 'dotenv';
 
 // Load environment variables

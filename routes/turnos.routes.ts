@@ -28,7 +28,7 @@ router.post('/sp/criar-turno', validateBody(turnoSchema), async (req: any, res: 
         
         // Log detalhado da criação do turno
         const usuario = req.user?.nome || 'Usuário não identificado';
-        const dataFormatada = new Date(data).toLocaleDateString('pt-BR');
+        const dataFormatada = data.split('-').reverse().join('/');
         const turnoInfo = `Turno do dia ${dataFormatada}: ${periodo}`;
         
         await LogService.logDetalhado({
@@ -92,7 +92,7 @@ router.post('/chamada-militar', validateBody(chamadaMilitarSchema), async (req: 
 
         await getConnection().query(
             'INSERT INTO chamada_militar (id_turno, matricula, id_chamada_militar, funcao, presenca, obs) VALUES (?, ?, ?, ?, ?, ?)',
-            [id_turno, matricula, id_chamada_militar, funcao || 'Combatente', presenca !== undefined ? (presenca ? 1 : 0) : 1, obs || null]
+            [id_turno, matricula, id_chamada_militar, funcao || 'Combatente', presenca || 'AUSENTE', obs || null]
         );
         
         // Construir descrição detalhada

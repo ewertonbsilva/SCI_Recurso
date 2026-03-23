@@ -1,10 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { UserPlus, Trash2, Calendar, Check, Users, UserCircle, X, Download } from 'lucide-react';
+import { UserPlus, Trash2, Calendar, Check, Users, UserCircle, X, Download, Plus } from 'lucide-react';
 import { apiService } from '../apiService';
-import { ChamadaCivil, StatusEquipe } from '../types';
+import { ChamadaCivil, StatusEquipe, CadastroCivil } from '../types';
 import { ToastType } from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import CivilModal from '../components/CivilModal';
 
 interface ChamadaCivilProps {
   onNotify?: (msg: string, type: ToastType) => void;
@@ -20,6 +21,8 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
   const [pendingCivis, setPendingCivis] = useState<string[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [isCivilModalOpen, setIsCivilModalOpen] = useState(false);
+  const [editingCivil, setEditingCivil] = useState<CadastroCivil | null>(null);
 
   // Estados do modal de confirmação
   const [modalConfig, setModalConfig] = useState<{
@@ -150,6 +153,34 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
     });
   };
 
+  const handleSaveCivil = async (civil: CadastroCivil) => {
+    try {
+      if (editingCivil) {
+        await apiService.updateCivil(editingCivil.id_civil, civil);
+        onNotify?.("Civil atualizado com sucesso!", "success");
+      } else {
+        await apiService.createCivil(civil);
+        onNotify?.("Civil cadastrado com sucesso!", "success");
+      }
+      
+      // Recarregar lista de civis
+      const civisData = await apiService.getCivis();
+      setCivis(civisData);
+      
+      // Fechar modal e limpar estado
+      setIsCivilModalOpen(false);
+      setEditingCivil(null);
+    } catch (error) {
+      console.error('Erro ao salvar civil:', error);
+      onNotify?.("Erro ao salvar civil.", "error");
+    }
+  };
+
+  const openNewCivilModal = () => {
+    setEditingCivil(null);
+    setIsCivilModalOpen(true);
+  };
+
   const sortedTurnos = [...turnos].sort((a, b) => b.data.localeCompare(a.data));
 
   return (
@@ -191,6 +222,13 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
 
               {isMenuOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-xl z-[999] p-4 animate-in fade-in zoom-in duration-200">
+                  <button
+                    onClick={openNewCivilModal}
+                    className="w-full mb-3 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus size={14} />
+                    NOVO CADASTRO
+                  </button>
                   <input
                     placeholder="Pesquisar civil..."
                     className="w-full mb-3 px-3 py-2 border dark:border-slate-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-100 dark:bg-slate-800 dark:text-white"
@@ -306,6 +344,14 @@ const ChamadaCivilView: React.FC<ChamadaCivilProps> = ({ onNotify }) => {
           Selecione um turno para realizar a chamada civil.
         </div>
       )}
+      
+      {/* Modal de Cadastro de Civil */}
+      <CivilModal
+        isOpen={isCivilModalOpen}
+        onClose={() => setIsCivilModalOpen(false)}
+        onSave={handleSaveCivil}
+        editingCivil={editingCivil}
+      />
       
       {/* Modal de Confirmação */}
       <ConfirmModal

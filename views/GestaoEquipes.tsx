@@ -21,7 +21,7 @@ import {
   ChevronRightIcon,
   Filter
 } from 'lucide-react';
-import { Equipe, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO } from '../types';
+import { Equipe, StatusEquipe, FuncaoMilitar, Turno, Periodo, ALFABETO_FONETICO, StatusPresenca } from '../types';
 import { ToastType } from '../components/Toast';
 import { apiService } from '../apiService';
 import { useAuth } from '../contexts/AuthContext';
@@ -749,7 +749,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                     const isComponenteEmOutraEquipe = (Object.values(componentesEquipe) as any[][]).some(list =>
                       list.some(comp => comp.id_chamada_militar === cm.id_chamada_militar)
                     );
-                    const isAvailable = !isChefeEmOutraEquipe && !isComponenteEmOutraEquipe;
+                    // Apenas militares com função COMBATENTE
+                    const isCombatente = cm.funcao === FuncaoMilitar.COMBATENTE;
+                    // Apenas militares com status PRESENTE
+                    const isPresente = cm.presenca === StatusPresenca.PRESENTE;
+                    const isAvailable = !isChefeEmOutraEquipe && !isComponenteEmOutraEquipe && isCombatente && isPresente;
                     return isAvailable;
                   });
 
@@ -869,7 +873,11 @@ const GestaoEquipes: React.FC<GestaoEquipesProps> = ({ onNotify }) => {
                   const isComponente = (Object.values(componentesEquipe) as any[][]).some(list =>
                     list.some(comp => comp.id_chamada_militar === cm.id_chamada_militar)
                   );
-                  const isAvailable = !isChefe && !isComponente;
+                  // Apenas militares com função COMBATENTE
+                  const isCombatente = cm.funcao === FuncaoMilitar.COMBATENTE;
+                  // Apenas militares com status PRESENTE
+                  const isPresente = cm.presenca === StatusPresenca.PRESENTE;
+                  const isAvailable = !isChefe && !isComponente && isCombatente && isPresente;
                   return isAvailable;
                 })
                 .map(cm => (
