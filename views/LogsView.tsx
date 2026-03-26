@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Calendar, User, Activity, Clock, Eye } from 'lucide-react';
+import { Search, Filter, Calendar, User, Activity, Clock, Eye, Download, FileDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ToastType } from '../components/Toast';
 import LogDetailModal from '../components/LogDetailModal';
+import Pagination from '../components/Pagination';
+import jsPDF from 'jspdf';
 
 interface LogEntry {
   id_log: string;
@@ -40,7 +42,7 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
   // Paginação
   const [pagina, setPagina] = useState(1);
   const [total, setTotal] = useState(0);
-  const [limite] = useState(50);
+  const [limite] = useState(10);
   
   // Modal de detalhes
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
@@ -229,6 +231,169 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
     });
   };
 
+  const exportarLogsPDF = () => {
+    try {
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let yPosition = 20;
+
+      // Configurações de estilo
+      const headerColor = [41, 128, 185]; // Azul
+      const textColor = [44, 62, 80]; // Azul escuro
+      const borderColor = [189, 195, 199]; // Cinza claro
+      const accentColor = [52, 152, 219]; // Azul mais claro
+
+      // Cabeçalho
+      pdf.setFillColor(headerColor[0], headerColor[1], headerColor[2]);
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('SCI RECURSO', pageWidth / 2, 20, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Sistema de Controle de Internação de Recursos', pageWidth / 2, 30, { align: 'center' });
+      
+      // Título do relatório
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('RELATÓRIO DE LOGS', 20, 55);
+      
+      // Data de geração
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pageWidth - 20, 55, { align: 'right' });
+      
+      // Linha decorativa
+      pdf.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
+      pdf.setLineWidth(0.5);
+      pdf.line(20, 65, pageWidth - 20, 65);
+      
+      yPosition = 75;
+
+      // Filtros aplicados
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Filtros Aplicados:', 20, yPosition);
+      yPosition += 8;
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      
+      const filtros = [];
+      if (usuario) filtros.push(`Usuário: ${usuario}`);
+      if (acao) filtros.push(`Ação: ${acao}`);
+      if (entidade) filtros.push(`Entidade: ${entidade}`);
+      if (dataInicio) filtros.push(`Data Início: ${new Date(dataInicio).toLocaleDateString('pt-BR')}`);
+      if (dataFim) filtros.push(`Data Fim: ${new Date(dataFim).toLocaleDateString('pt-BR')}`);
+      
+      if (filtros.length > 0) {
+        filtros.forEach(filtro => {
+          pdf.text(`• ${filtro}`, 25, yPosition);
+          yPosition += 6;
+        });
+      } else {
+        pdf.text('• Nenhum filtro aplicado', 25, yPosition);
+        yPosition += 6;
+      }
+      
+      pdf.text(`• Total de Registros: ${total}`, 25, yPosition);
+      yPosition += 15;
+
+      // Cabeçalho da tabela
+      pdf.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+      pdf.rect(20, yPosition, pageWidth - 40, 10, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Data/Hora', 25, yPosition + 7);
+      pdf.text('Usuário', 60, yPosition + 7);
+      pdf.text('Ação', 90, yPosition + 7);
+      pdf.text('Entidade', 120, yPosition + 7);
+      pdf.text('Descrição', 150, yPosition + 7);
+      pdf.text('IP', 180, yPosition + 7);
+      
+      yPosition += 10;
+
+      // Dados da tabela
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      pdf.setFont('helvetica', 'normal');
+      logs.forEach((log, index) => {
+        if (yPosition > pageHeight - 30) {
+          pdf.addPage();
+          yPosition = 20;
+          
+          // Repetir cabeçalho
+          pdf.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+          pdf.rect(20, yPosition, pageWidth - 40, 10, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Data/Hora', 25, yPosition + 7);
+          pdf.text('Usuário', 60, yPosition + 7);
+          pdf.text('Ação', 90, yPosition + 7);
+          pdf.text('Entidade', 120, yPosition + 7);
+          pdf.text('Descrição', 150, yPosition + 7);
+          pdf.text('IP', 180, yPosition + 7);
+          
+          yPosition += 10;
+          pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+          pdf.setFont('helvetica', 'normal');
+        }
+        
+        // Linha separadora
+        if (index > 0) {
+          pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+          pdf.line(20, yPosition, pageWidth - 20, yPosition);
+        }
+        
+        pdf.text(formatDate(log.data_hora), 25, yPosition + 7);
+        pdf.text(log.usuario, 60, yPosition + 7);
+        pdf.text(log.acao, 90, yPosition + 7);
+        pdf.text(log.entidade, 120, yPosition + 7);
+        
+        // Truncar descrição se for muito longa
+        const descricao = log.descricao || '-';
+        const maxDescLength = 25;
+        const truncatedDesc = descricao.length > maxDescLength ? descricao.substring(0, maxDescLength) + '...' : descricao;
+        pdf.text(truncatedDesc, 150, yPosition + 7);
+        
+        pdf.text(log.ip_address || '-', 180, yPosition + 7);
+        
+        yPosition += 10;
+      });
+      
+      // Rodapé
+      const totalPages = (pdf as any).internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        
+        // Linha do rodapé
+        pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+        pdf.line(20, pageHeight - 20, pageWidth - 20, pageHeight - 20);
+        
+        // Texto do rodapé
+        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        pdf.text('SCI RECURSO - Sistema de Controle de Internação de Recursos', pageWidth / 2, pageHeight - 5, { align: 'center' });
+      }
+      
+      // Salvar o PDF
+      pdf.save(`relatorio logs ${new Date().toISOString().split('T')[0]}.pdf`);
+      onNotify?.('Relatório PDF gerado com sucesso', 'success');
+      
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      onNotify?.('Erro ao gerar relatório PDF', 'error');
+    }
+  };
+
   const getAcaoColor = (acao: string) => {
     switch (acao) {
       case 'CREATE': return 'text-green-600 bg-green-50';
@@ -261,28 +426,28 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-1">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Logs do Sistema</h2>
-          <p className="text-gray-500 dark:text-gray-400">Visualize todas as atividades registradas</p>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Logs do Sistema</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Visualize todas as atividades registradas</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Clock className="h-4 w-4" />
-          Últimas 24h: {stats?.ultimas_24h || 0}
+        <div className="flex items-center gap-1 text-xs text-gray-500">
+          <Clock className="h-3 w-3" />
+          24h: {stats?.ultimas_24h || 0}
         </div>
       </div>
 
       {/* Estatísticas */}
       {stats && !loadingStats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-sm text-gray-600 dark:text-gray-400 mb-2">Ações Mais Comuns</h3>
-            <div className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+          <div className="bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-xs text-gray-600 dark:text-gray-400 mb-0.5">Ações</h3>
+            <div className="space-y-0.5">
               {stats.acoes.slice(0, 3).map((item, index) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getAcaoColor(item.acao)}`}>
+                <div key={index} className="flex justify-between text-xs">
+                  <span className={`px-1 py-0.5 rounded text-xs font-medium ${getAcaoColor(item.acao)}`}>
                     {item.acao}
                   </span>
                   <span className="text-gray-500">{item.count}</span>
@@ -291,24 +456,24 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-sm text-gray-600 dark:text-gray-400 mb-2">Entidades Acessadas</h3>
-            <div className="space-y-1">
+          <div className="bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-xs text-gray-600 dark:text-gray-400 mb-0.5">Entidades</h3>
+            <div className="space-y-0.5">
               {stats.entidades.slice(0, 3).map((item, index) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span className="font-medium">{item.entidade}</span>
+                <div key={index} className="flex justify-between text-xs">
+                  <span className="font-medium truncate">{item.entidade}</span>
                   <span className="text-gray-500">{item.count}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-sm text-gray-600 dark:text-gray-400 mb-2">Usuários Ativos</h3>
-            <div className="space-y-1">
+          <div className="bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-xs text-gray-600 dark:text-gray-400 mb-0.5">Usuários</h3>
+            <div className="space-y-0.5">
               {stats.usuarios.slice(0, 3).map((item, index) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span className="font-medium flex items-center gap-1">
+                <div key={index} className="flex justify-between text-xs">
+                  <span className="font-medium truncate flex items-center gap-1">
                     <User className="h-3 w-3" />
                     {item.usuario}
                   </span>
@@ -321,33 +486,33 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
       )}
 
       {/* Filtros */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="h-4 w-4" />
-          <h3 className="font-semibold">Filtros</h3>
+      <div className="bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2 mb-1">
+          <Filter className="h-3 w-3" />
+          <h3 className="font-semibold text-xs">Filtros</h3>
           <button
             onClick={clearFilters}
-            className="ml-auto text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            className="ml-auto text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           >
-            Limpar filtros
+            Limpar
           </button>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1">
           <input
             type="text"
             placeholder="Usuário"
             value={usuario}
             onChange={(e) => setUsuario(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm"
+            className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
           />
           
           <select
             value={acao}
             onChange={(e) => setAcao(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm"
+            className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
           >
-            <option value="">Todas as ações</option>
+            <option value="">Ações</option>
             <option value="CREATE">CREATE</option>
             <option value="UPDATE">UPDATE</option>
             <option value="DELETE">DELETE</option>
@@ -361,7 +526,7 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
             placeholder="Entidade"
             value={entidade}
             onChange={(e) => setEntidade(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm"
+            className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
           />
           
           <input
@@ -369,7 +534,7 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
             placeholder="Data início"
             value={dataInicio}
             onChange={(e) => setDataInicio(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm"
+            className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
           />
           
           <input
@@ -377,11 +542,21 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
             placeholder="Data fim"
             value={dataFim}
             onChange={(e) => setDataFim(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm"
+            className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
           />
           
-          <div className="text-sm text-gray-500 flex items-center">
-            Total: {total} registros
+          <div className="text-xs text-gray-500 flex items-center gap-2">
+            Total: {total}
+            {logs.length > 0 && (
+              <button
+                onClick={exportarLogsPDF}
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                title="Exportar para PDF"
+              >
+                <FileDown size={12} />
+                PDF
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -389,17 +564,17 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
       {/* Lista de Logs */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex items-center justify-center h-20">
             <div className="text-center">
-              <Activity className="mx-auto h-8 w-8 text-gray-400 animate-spin mb-2" />
-              <p className="text-gray-500">Carregando logs...</p>
+              <Activity className="mx-auto h-5 w-5 text-gray-400 animate-spin mb-1" />
+              <p className="text-gray-500 text-xs">Carregando...</p>
             </div>
           </div>
         ) : logs.length === 0 ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex items-center justify-center h-20">
             <div className="text-center">
-              <Search className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-              <p className="text-gray-500">Nenhum log encontrado</p>
+              <Search className="mx-auto h-5 w-5 text-gray-400 mb-1" />
+              <p className="text-gray-500 text-xs">Nenhum log</p>
             </div>
           </div>
         ) : (
@@ -407,25 +582,25 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-0.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Data/Hora
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-0.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Usuário
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-0.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Ação
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-0.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Entidade
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-0.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Descrição
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-0.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     IP
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-0.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Ações
                   </th>
                 </tr>
@@ -433,36 +608,36 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                 {logs.map((log) => (
                   <tr key={log.id_log} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                    <td className="px-2 py-0.5 text-xs text-gray-900 dark:text-white">
                       {formatDate(log.data_hora)}
                     </td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-2 py-0.5 text-xs">
                       <div className="flex items-center gap-1">
                         <User className="h-3 w-3 text-gray-400" />
                         {log.usuario}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getAcaoColor(log.acao)}`}>
+                    <td className="px-2 py-0.5 text-xs">
+                      <span className={`px-1 py-0.5 rounded text-xs font-medium ${getAcaoColor(log.acao)}`}>
                         {log.acao}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium">
+                    <td className="px-2 py-0.5 text-xs font-medium">
                       {log.entidade}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                    <td className="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 max-w-xs truncate">
                       {log.descricao}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-2 py-0.5 text-xs text-gray-500">
                       {log.ip_address}
                     </td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-2 py-0.5 text-xs">
                       <button
                         onClick={() => openLogDetail(log)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/30 transition-colors"
+                        className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-950/30 transition-colors"
                         title="Ver detalhes"
                       >
-                        <Eye size={14} />
+                        <Eye size={10} />
                         Ver
                       </button>
                     </td>
@@ -476,26 +651,12 @@ const LogsView: React.FC<{ onNotify?: (msg: string, type: ToastType) => void }> 
 
       {/* Paginação */}
       {totalPaginas > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setPagina(pagina - 1)}
-            disabled={pagina === 1}
-            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50"
-          >
-            Anterior
-          </button>
-          
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            Página {pagina} de {totalPaginas}
-          </span>
-          
-          <button
-            onClick={() => setPagina(pagina + 1)}
-            disabled={pagina === totalPaginas}
-            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50"
-          >
-            Próxima
-          </button>
+        <div className="mt-2">
+          <Pagination
+            currentPage={pagina}
+            totalPages={totalPaginas}
+            onPageChange={setPagina}
+          />
         </div>
       )}
 
