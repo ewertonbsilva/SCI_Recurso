@@ -73,10 +73,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN] },
-    { id: 'monitoramento', label: 'Monitoramento', icon: <Activity size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
-    { id: 'equipes', label: 'Gestão de Equipes', icon: <Truck size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
-    { id: 'cadastro', label: 'Cadastros Base', icon: <Users size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
+    { id: 'cadastro', label: 'Cadastro Base', icon: <Users size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
     { id: 'turnos', label: 'Gestão de Turnos', icon: <Clock size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
+    { id: 'equipes', label: 'Gestão de Equipes', icon: <Truck size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
+    { id: 'monitoramento', label: 'Monitoramento', icon: <Activity size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
     { id: 'relatorios', label: 'Relatórios', icon: <BarChart3 size={20} />, roles: [UserRole.ADMIN, UserRole.OPERADOR] },
     { id: 'usuarios', label: 'Configurações', icon: <Settings size={20} />, roles: [UserRole.ADMIN] },
   ];
